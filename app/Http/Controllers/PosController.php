@@ -1,0 +1,717 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Table;
+use App\Models\Product;
+use App\Models\Category;
+use App\Models\Customer;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Payment;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+
+class PosController extends Controller
+{
+    /**
+     * Display the POS interface
+     */
+    public function index(Request $request)
+    {
+        // Sincronizar estados de mesas antes de cargar
+        $this->syncTableStatuses();
+        
+        $tables = Table::where('is_active', true)->get();
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+        $products = Product::where('is_active', true)->with('category')->get();
+        $customers = Customer::where('is_active', true)->get();
+        
+        // Obtener pedidos activos
+        $activeOrders = Order::whereIn('status', ['pending', 'preparing', 'ready'])
+            ->with(['table', 'customer', 'items.product'])
+            ->get();
+
+        // Verificar si se preseleccionó una mesa
+        $selectedTableId = $request->get('table_id');
+        $selectedTable = null;
+        if ($selectedTableId) {
+            $selectedTable = Table::find($selectedTableId);
+        }
+
+        return view('pos.index', compact(
+            'tables', 
+            'categories', 
+            'products', 
+            'customers', 
+            'activeOrders',
+            'selectedTable'
+        ));
+    }
+
+    /**
+     * Show order creation form with type selection
+     */
+    public function create()
+    {
+        $tables = Table::where('is_active', true)->get();
+        $customers = Customer::where('is_active', true)->get();
+        
+        return view('pos.create', compact('tables', 'customers'));
+    }
+
+    /**
+     * Show order builder interface
+     */
+    public function buildOrder(Request $request)
+    {
+        $request->validate([
+            'order_type' => 'required|in:dine_in,takeaway,delivery,pickup',
+            'table_id' => 'nullable|exists:tables,id',
+            'customer_id' => 'nullable|exists:customers,id',
+            'customer_name' => 'nullable|string|max:255',
+        ]);
+
+        $tables = Table::where('is_active', true)->get();
+        $customers = Customer::where('is_active', true)->get();
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+        $products = Product::where('is_active', true)->with('category')->get();
+        
+        // Pasar datos a la vista
+        $orderType = $request->order_type;
+        $tableId = $request->table_id;
+        $customerId = $request->customer_id;
+        $customerName = $request->customer_name;
+        
+        return view('pos.build-order', compact(
+            'tables', 
+            'customers', 
+            'categories', 
+            'products',
+            'orderType',
+            'tableId',
+            'customerId',
+            'customerName'
+        ));
+    }
+
+    /**
+     * Store a newly created order
+     */
+    public function store(Request $request)
+    {
+        \Illuminate\Support\Facades\Log::info('Datos recibidos en store:', $request->all());
+        
+        $request->validate([
+            'order_type' => 'required|in:dine_in,takeaway,delivery,pickup',
+            'table_id' => 'nullable|exists:tables,id',
+            'customer_id' => 'nullable|exists:customers,id',
+            'customer_name' => 'nullable|string|max:255',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unit_price' => 'required|numeric|min:0',
+            'subtotal' => 'required|numeric|min:0',
+            'tax_amount' => 'required|numeric|min:0',
+            'delivery_cost' => 'nullable|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        
+        try {
+            // Crear cliente si se proporciona nombre
+            $customerId = $request->customer_id;
+            if (!$customerId && $request->customer_name) {
+                $customer = Customer::create([
+                    'name' => $request->customer_name,
+                    'email' => null,
+                    'phone' => null,
+                    'address' => null,
+                    'is_active' => true,
+                ]);
+                $customerId = $customer->id;
+            }
+
+            // Crear el pedido
+            $order = Order::create([
+                'order_number' => $this->generateOrderNumber(),
+                'daily_number' => $this->generateDailyNumber(),
+                'table_id' => $request->table_id,
+                'customer_id' => $customerId,
+                'user_id' => Auth::id(),
+                'type' => $request->order_type,
+                'status' => Order::STATUS_PENDING,
+                'subtotal' => $request->subtotal,
+                'tax_amount' => $request->tax_amount,
+                'discount_amount' => 0,
+                'delivery_cost' => $request->delivery_cost ?? 0,
+                'total_amount' => $request->total_amount,
+                'notes' => $request->notes,
+                'currency' => 'USD',
+                'exchange_rate' => 1,
+            ]);
+
+            // Crear los items del pedido
+            foreach ($request->items as $item) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'total_price' => $item['quantity'] * $item['unit_price'],
+                    'status' => 'pending',
+                ]);
+            }
+
+            // Actualizar estado de la mesa si es dine_in
+            if ($request->order_type === Order::TYPE_DINE_IN && $request->table_id) {
+                Table::where('id', $request->table_id)->update(['status' => Table::STATUS_OCCUPIED]);
+            }
+
+            DB::commit();
+
+            // Auto print orders - solo generar URLs, no ejecutar
+            // Las comandas se imprimirán cuando se acceda a las rutas de impresión
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pedido creado exitosamente',
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'daily_number' => $order->daily_number,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear el pedido: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Display the specified order
+     */
+    public function show(Order $order)
+    {
+        $order->load(['table', 'customer', 'items.product', 'payments']);
+        
+        return view('pos.show', compact('order'));
+    }
+
+    public function orderDetail(Order $order)
+    {
+        $order->load(['customer', 'table', 'items.product', 'payments']);
+        $categories = \App\Models\Category::where('is_active', true)->get();
+        $products = \App\Models\Product::where('is_active', true)->with('category')->get();
+        
+        return view('pos.order-detail', compact('order', 'categories', 'products'));
+    }
+
+    public function updateOrderStatus(Request $request, Order $order)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,preparing,ready,delivered,cancelled'
+        ]);
+
+        $order->update(['status' => $request->status]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Estado del pedido actualizado correctamente'
+        ]);
+    }
+
+    public function addProductToOrder(Request $request, $orderId)
+    {
+        try {
+            $request->validate([
+                'product_id' => 'required|exists:products,id',
+                'quantity' => 'required|integer|min:1'
+            ]);
+
+            $order = Order::findOrFail($orderId);
+            $product = \App\Models\Product::findOrFail($request->product_id);
+            
+            // Verificar si el producto ya existe en la orden
+            $existingItem = $order->items()->where('product_id', $product->id)->first();
+            
+            if ($existingItem) {
+                $existingItem->update([
+                    'quantity' => $existingItem->quantity + $request->quantity,
+                    'total_price' => ($existingItem->quantity + $request->quantity) * $existingItem->unit_price
+                ]);
+            } else {
+                \App\Models\OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $product->id,
+                    'quantity' => $request->quantity,
+                    'unit_price' => $product->price,
+                    'total_price' => $product->price * $request->quantity,
+                    'status' => 'pending'
+                ]);
+            }
+
+            // Recalcular totales
+            $this->recalculateOrderTotals($order);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Producto agregado correctamente'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error adding product to order: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al agregar el producto: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateItemQuantity(Request $request, $orderId, $itemId)
+    {
+        $request->validate([
+            'quantity' => 'required|integer|min:1'
+        ]);
+
+        $order = Order::findOrFail($orderId);
+        $item = $order->items()->findOrFail($itemId);
+        $item->update([
+            'quantity' => $request->quantity,
+            'total_price' => $item->unit_price * $request->quantity
+        ]);
+
+        // Recalcular totales
+        $this->recalculateOrderTotals($order);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cantidad actualizada correctamente'
+        ]);
+    }
+
+    public function removeItemFromOrder($orderId, $itemId)
+    {
+        $order = Order::findOrFail($orderId);
+        $item = $order->items()->findOrFail($itemId);
+        $item->delete();
+
+        // Recalcular totales
+        $this->recalculateOrderTotals($order);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Producto eliminado correctamente'
+        ]);
+    }
+
+    private function recalculateOrderTotals(Order $order)
+    {
+        $subtotal = $order->items()->sum('total_price');
+        $deliveryCost = $order->delivery_cost ?? 0;
+        $totalAmount = $subtotal + $deliveryCost;
+
+        $order->update([
+            'subtotal' => $subtotal,
+            'tax_amount' => 0, // Los precios ya incluyen IVA
+            'delivery_cost' => $deliveryCost,
+            'total_amount' => $totalAmount
+        ]);
+    }
+
+    /**
+     * Show the form for editing the specified order
+     */
+    public function edit(Order $order)
+    {
+        $tables = Table::where('is_active', true)->get();
+        $customers = Customer::where('is_active', true)->get();
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+        $products = Product::where('is_active', true)->with('category')->get();
+        
+        $order->load(['items.product']);
+        
+        return view('pos.edit', compact('order', 'tables', 'customers', 'categories', 'products'));
+    }
+
+    /**
+     * Update the specified order
+     */
+    public function update(Request $request, Order $order)
+    {
+        $request->validate([
+            'table_id' => 'nullable|exists:tables,id',
+            'customer_id' => 'nullable|exists:customers,id',
+            'status' => 'required|in:pending,preparing,ready,delivered,cancelled',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $order->update($request->only(['table_id', 'customer_id', 'status', 'notes']));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pedido actualizado exitosamente',
+        ]);
+    }
+
+    /**
+     * Remove the specified order
+     */
+    public function destroy(Order $order)
+    {
+        if ($order->status === 'delivered') {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede eliminar un pedido ya entregado',
+            ], 400);
+        }
+
+        DB::beginTransaction();
+        
+        try {
+            // Liberar la mesa si es dine-in
+            if ($order->table_id && $order->type === 'dine_in') {
+                Table::where('id', $order->table_id)->update(['status' => 'free']);
+            }
+
+            // Eliminar items y pagos
+            $order->items()->delete();
+            $order->payments()->delete();
+            $order->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pedido eliminado exitosamente',
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar el pedido: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Show order for a specific table
+     */
+    public function showTableOrder($tableId)
+    {
+        $table = Table::findOrFail($tableId);
+        $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
+        $products = Product::where('is_active', true)->with('category')->get();
+        $customers = Customer::where('is_active', true)->get();
+        
+        // Buscar orden activa para esta mesa
+        $activeOrder = Order::where('table_id', $tableId)
+            ->whereIn('status', ['pending', 'preparing', 'ready'])
+            ->with(['items.product', 'customer', 'user'])
+            ->first();
+
+        return view('pos.table-order', compact(
+            'table', 
+            'activeOrder', 
+            'categories', 
+            'products', 
+            'customers'
+        ));
+    }
+
+
+
+
+    /**
+     * Print kitchen order
+     */
+    public function printKitchenOrder($orderId)
+    {
+        $order = Order::with(['items.product', 'table'])->findOrFail($orderId);
+        
+        // Filtrar productos para cocina (pizzas, entradas, etc.)
+        $kitchenItems = $order->items->filter(function($item) {
+            return in_array($item->product->category->name, ['Pizzas', 'Entradas', 'Postres']);
+        });
+
+        return view('pos.print.kitchen', compact('order', 'kitchenItems'));
+    }
+
+    /**
+     * Print bar order
+     */
+    public function printBarOrder($orderId)
+    {
+        $order = Order::with(['items.product', 'table'])->findOrFail($orderId);
+        
+        // Filtrar productos para barra (bebidas)
+        $barItems = $order->items->filter(function($item) {
+            return $item->product->category->name === 'Bebidas';
+        });
+
+        return view('pos.print.bar', compact('order', 'barItems'));
+    }
+
+    /**
+     * Show payment form for order
+     */
+    public function showPayment($orderId)
+    {
+        $order = Order::with(['items.product', 'customer', 'table'])->findOrFail($orderId);
+        
+        return view('pos.payment', compact('order'));
+    }
+
+    /**
+     * Process payment for order
+     */
+    public function processPayment(Request $request, $orderId)
+    {
+        $request->validate([
+            'payment_method' => 'required|in:cash,mobile_payment,zelle,binance,pos,transfer',
+            'reference' => 'nullable|string|max:255',
+            'amount' => 'required|numeric|min:0.01',
+            'customer_data' => 'nullable|array',
+            'customer_data.name' => 'required_with:customer_data|string|max:255',
+            'customer_data.email' => 'nullable|email|max:255',
+            'customer_data.phone' => 'nullable|string|max:20',
+            'customer_data.address' => 'nullable|string|max:500',
+            'customer_data.cedula' => 'nullable|string|max:20',
+        ]);
+
+        $order = Order::findOrFail($orderId);
+        
+        DB::beginTransaction();
+        
+        try {
+            // Manejar datos del cliente
+            if ($request->customer_data) {
+                $customer = null;
+                
+                // Buscar cliente existente por cédula (identificador único)
+                if (!empty($request->customer_data['cedula'])) {
+                    $existingCustomer = Customer::where('cedula', $request->customer_data['cedula'])->first();
+                    if ($existingCustomer) {
+                        // Actualizar cliente existente
+                        $existingCustomer->update($request->customer_data);
+                        $customer = $existingCustomer;
+                    }
+                }
+                
+                // Si no se encontró cliente existente, crear uno nuevo
+                if (!$customer) {
+                    try {
+                        $customer = Customer::create([
+                            'name' => $request->customer_data['name'],
+                            'email' => $request->customer_data['email'] ?? null,
+                            'phone' => $request->customer_data['phone'] ?? null,
+                            'address' => $request->customer_data['address'] ?? null,
+                            'cedula' => $request->customer_data['cedula'] ?? null,
+                            'is_active' => true,
+                        ]);
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        // Si hay error de cédula duplicada, buscar el cliente existente
+                        if (str_contains($e->getMessage(), 'customers_cedula_unique')) {
+                            $customer = Customer::where('cedula', $request->customer_data['cedula'])->first();
+                            if ($customer) {
+                                // Actualizar cliente existente
+                                $customer->update($request->customer_data);
+                            }
+                        } else {
+                            throw $e;
+                        }
+                    }
+                }
+                
+                // Asociar cliente a la orden
+                if ($customer) {
+                    $order->update(['customer_id' => $customer->id]);
+                }
+            }
+
+            // Crear pago
+            $payment = Payment::create([
+                'order_id' => $order->id,
+                'amount' => $request->amount,
+                'payment_method' => $request->payment_method,
+                'reference' => $request->reference,
+                'status' => Payment::STATUS_COMPLETED,
+                'user_id' => Auth::id(),
+                'currency' => 'USD',
+                'exchange_rate' => 1,
+            ]);
+
+            // Actualizar estado de la orden
+            $order->update([
+                'status' => Order::STATUS_DELIVERED,
+                'delivered_at' => now(),
+            ]);
+
+            // Liberar mesa si es dine_in
+            if ($order->type === Order::TYPE_DINE_IN && $order->table) {
+                $order->table->update(['status' => Table::STATUS_FREE]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pago procesado exitosamente',
+                'order' => $order->fresh(['items.product', 'customer', 'table', 'payments'])
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar el pago: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Auto print kitchen and bar orders
+     */
+    public function autoPrintOrders($orderId)
+    {
+        $order = Order::findOrFail($orderId);
+        
+        // Imprimir comanda de cocina
+        $kitchenUrl = route('pos.print.kitchen', $order->id);
+        
+        // Imprimir comanda de barra
+        $barUrl = route('pos.print.bar', $order->id);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Comandas enviadas a imprimir',
+            'kitchen_url' => $kitchenUrl,
+            'bar_url' => $barUrl,
+        ]);
+    }
+
+
+    /**
+     * Generate unique order number
+     */
+    private function generateOrderNumber()
+    {
+        $prefix = config('pizzeria.pos.order_number_prefix', 'ORD-');
+        $date = now()->format('Ymd');
+        $sequence = Order::whereDate('created_at', today())->count() + 1;
+        
+        return $prefix . $date . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Generate daily number for order
+     */
+    private function generateDailyNumber()
+    {
+        $today = now()->startOfDay();
+        $tomorrow = now()->addDay()->startOfDay();
+        
+        $lastOrder = Order::whereBetween('created_at', [$today, $tomorrow])
+            ->orderBy('daily_number', 'desc')
+            ->first();
+        
+        return $lastOrder ? $lastOrder->daily_number + 1 : 1;
+    }
+
+    /**
+     * Get active orders for status bar
+     */
+    public function getActiveOrders()
+    {
+        try {
+            $orders = Order::with(['customer', 'table', 'items'])
+                ->whereIn('status', ['pending', 'preparing', 'ready'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($order) {
+                    return [
+                        'id' => $order->id,
+                        'daily_number' => $order->daily_number,
+                        'status' => $order->status,
+                        'type' => $order->type,
+                        'total_amount' => $order->total_amount,
+                        'created_at' => $order->created_at->toISOString(),
+                        'customer' => $order->customer ? [
+                            'name' => $order->customer->name,
+                            'phone' => $order->customer->phone,
+                            'email' => $order->customer->email,
+                        ] : null,
+                        'table' => $order->table ? [
+                            'id' => $order->table->id,
+                            'name' => $order->table->name,
+                        ] : null,
+                        'items_count' => $order->items->count(),
+                    ];
+                });
+
+        return response()->json($orders);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Error in getActiveOrders: ' . $e->getMessage());
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+    public function getDeliveryCosts()
+    {
+        try {
+            $deliveryCosts = \App\Models\DeliveryCost::getActiveRanges();
+            return response()->json($deliveryCosts);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error getting delivery costs: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function calculateDeliveryCost(Request $request)
+    {
+        try {
+            $request->validate([
+                'distance' => 'required|numeric|min:0'
+            ]);
+
+            $deliveryCost = \App\Models\DeliveryCost::getCostForDistance($request->distance);
+            
+            if ($deliveryCost) {
+                return response()->json([
+                    'success' => true,
+                    'cost' => $deliveryCost->cost,
+                    'description' => $deliveryCost->description
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró costo de delivery para esa distancia'
+                ], 404);
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error calculating delivery cost: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Sincronizar estados de mesas con órdenes activas
+     */
+    private function syncTableStatuses()
+    {
+        $tables = Table::all();
+        
+        foreach ($tables as $table) {
+            $table->syncStatus();
+        }
+    }
+
+}

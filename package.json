@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@alpinejs/intersect": "^3.15.0",
+        "@alpinejs/persist": "^3.15.0",
+        "@popperjs/core": "^2.11.6",
+        "@tailwindcss/aspect-ratio": "^0.4.2",
+        "@tailwindcss/forms": "^0.5.10",
+        "@tailwindcss/typography": "^0.5.18",
+        "alpinejs": "^3.15.0",
+        "autoprefixer": "^10.4.21",
+        "axios": "^1.11.0",
+        "bootstrap": "^5.2.3",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^2.0.0",
+        "postcss": "^8.5.6",
+        "sass": "^1.56.1",
+        "tailwindcss": "^3.4.17",
+        "vite": "^7.1.7"
+    },
+    "dependencies": {
+        "chart.js": "^4.5.0",
+        "chartjs-adapter-date-fns": "^3.0.0",
+        "date-fns": "^4.1.0"
+    }
+}
