@@ -435,11 +435,13 @@ class PosController extends Controller
      */
     public function printKitchenOrder($orderId)
     {
-        $order = Order::with(['items.product', 'table'])->findOrFail($orderId);
+        $order = Order::with(['items.product.category', 'table', 'customer', 'user'])->findOrFail($orderId);
         
-        // Filtrar productos para cocina (pizzas, entradas, etc.)
+        // Filtrar productos para cocina (todas las categorías excepto bebidas)
         $kitchenItems = $order->items->filter(function($item) {
-            return in_array($item->product->category->name, ['Pizzas', 'Entradas', 'Postres']);
+            $categoryName = $item->product->category->name ?? '';
+            // Incluir todo excepto bebidas
+            return !str_contains(strtolower($categoryName), 'bebida');
         });
 
         return view('pos.print.kitchen', compact('order', 'kitchenItems'));
@@ -450,11 +452,12 @@ class PosController extends Controller
      */
     public function printBarOrder($orderId)
     {
-        $order = Order::with(['items.product', 'table'])->findOrFail($orderId);
+        $order = Order::with(['items.product.category', 'table', 'customer', 'user'])->findOrFail($orderId);
         
-        // Filtrar productos para barra (bebidas)
+        // Filtrar productos para barra (solo bebidas)
         $barItems = $order->items->filter(function($item) {
-            return $item->product->category->name === 'Bebidas';
+            $categoryName = $item->product->category->name ?? '';
+            return str_contains(strtolower($categoryName), 'bebida');
         });
 
         return view('pos.print.bar', compact('order', 'barItems'));
@@ -476,15 +479,16 @@ class PosController extends Controller
     public function processPayment(Request $request, $orderId)
     {
         $request->validate([
-            'payment_method' => 'required|in:cash,mobile_payment,zelle,binance,pos,transfer',
-            'reference' => 'nullable|string|max:255',
-            'amount' => 'required|numeric|min:0.01',
-            'customer_data' => 'nullable|array',
-            'customer_data.name' => 'required_with:customer_data|string|max:255',
+            'payments' => 'required|array|min:1',
+            'payments.*.method' => 'required|in:cash,mobile_payment,zelle,binance,pos,transfer',
+            'payments.*.amount' => 'required|numeric|min:0.01',
+            'payments.*.reference' => 'nullable|string|max:255',
+            'customer_data' => 'required|array',
+            'customer_data.name' => 'required|string|max:255',
             'customer_data.email' => 'nullable|email|max:255',
             'customer_data.phone' => 'nullable|string|max:20',
             'customer_data.address' => 'nullable|string|max:500',
-            'customer_data.cedula' => 'nullable|string|max:20',
+            'customer_data.cedula' => 'required|string|max:20',
         ]);
 
         $order = Order::findOrFail($orderId);
@@ -537,17 +541,26 @@ class PosController extends Controller
                 }
             }
 
-            // Crear pago
-            $payment = Payment::create([
-                'order_id' => $order->id,
-                'amount' => $request->amount,
-                'payment_method' => $request->payment_method,
-                'reference' => $request->reference,
-                'status' => Payment::STATUS_COMPLETED,
-                'user_id' => Auth::id(),
-                'currency' => 'USD',
-                'exchange_rate' => 1,
-            ]);
+            // Crear múltiples pagos
+            $totalPaid = 0;
+            foreach ($request->payments as $paymentData) {
+                $payment = Payment::create([
+                    'order_id' => $order->id,
+                    'amount' => $paymentData['amount'],
+                    'payment_method' => $paymentData['method'],
+                    'reference' => $paymentData['reference'] ?? null,
+                    'status' => Payment::STATUS_COMPLETED,
+                    'user_id' => Auth::id(),
+                    'currency' => 'USD',
+                    'exchange_rate' => 1,
+                ]);
+                $totalPaid += $paymentData['amount'];
+            }
+            
+            // Verificar que el total pagado coincida con el total de la orden
+            if (abs($totalPaid - $order->total_amount) > 0.01) {
+                throw new \Exception('El monto total pagado no coincide con el total de la orden');
+            }
 
             // Actualizar estado de la orden
             $order->update([
