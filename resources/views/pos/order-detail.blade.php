@@ -6,98 +6,134 @@
 <style>
 .pos-grid {
     display: grid;
-    grid-template-columns: 350px 1fr;
+    grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
-    gap: 15px;
-    height: calc(100vh - 100px);
-    padding: 15px;
+    gap: 10px;
+    height: 100vh;
+    padding: 10px;
+    overflow: hidden;
+}
+
+@media (min-width: 768px) {
+    .pos-grid {
+        grid-template-columns: 320px 1fr;
+        height: calc(100vh - 20px);
+    }
 }
 
 .pos-header {
     grid-column: 1 / -1;
     background: white;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .pos-info {
     background: white;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 120px);
 }
 
 .pos-menu {
     background: white;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .pos-cart {
     background: white;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
 }
 
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
     overflow-y: auto;
     flex: 1;
-    padding: 10px 0;
+    padding: 8px 0;
 }
 
 .product-card {
-    background: #f8f9fa;
+    background: white;
     border-radius: 8px;
-    padding: 10px;
+    padding: 12px;
     text-align: center;
     border: 1px solid #e9ecef;
     transition: all 0.2s;
-    height: 140px;
+    height: 120px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
+    cursor: pointer;
 }
 
 .product-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #dee2e6;
+    background: #f8f9fa;
+}
+
+.product-card:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .cart-item {
     background: #f8f9fa;
     border-radius: 6px;
-    padding: 8px;
+    padding: 10px;
     margin-bottom: 8px;
-    border: 1px solid #e9ecef;
+    border: 1px solid #dee2e6;
 }
 
 .btn-compact {
-    padding: 4px 8px;
-    font-size: 12px;
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
 }
 
 .btn-mini {
     width: 24px;
     height: 24px;
     padding: 0;
-    font-size: 10px;
-    display: flex;
+    font-size: 14px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    border-radius: 4px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+@media (max-width: 767px) {
+    .pos-grid {
+        grid-template-rows: auto auto auto;
+    }
+    
+    .pos-info {
+        max-height: 50vh;
+    }
 }
 </style>
 
@@ -144,35 +180,38 @@
         </div>
         
         <!-- Lista de Productos del Pedido -->
-        <div class="mb-3" style="max-height: 300px; overflow-y: auto;">
+        <div class="mb-3" style="max-height: 350px; overflow-y: auto;">
             @if($order->items->count() > 0)
                 @foreach($order->items as $item)
-                <div class="d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1 fw-bold" style="font-size: 13px;">{{ $item->product->name }}</h6>
-                        <div class="d-flex align-items-center gap-1">
+                <div style="background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0 fw-bold" style="font-size: 14px;">{{ $item->product->name }}</h6>
+                        <button @click="removeItem({{ $item->id }})" 
+                                class="btn btn-mini"
+                                style="background: transparent; border: none; color: #dc3545; font-size: 20px; padding: 0; width: auto; height: auto;">
+                            ×
+                        </button>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
                             <button @click="updateQuantity({{ $item->id }}, {{ $item->quantity - 1 }})" 
-                                    class="btn btn-outline-secondary btn-mini">
-                                <i class="fas fa-minus"></i>
+                                    class="btn btn-mini"
+                                    style="background: #f8f9fa; border: 1px solid #dee2e6; color: #495057;">
+                                −
                             </button>
-                            <span class="fw-bold mx-2">{{ $item->quantity }}</span>
+                            <span class="fw-bold" style="min-width: 30px; text-align: center; font-size: 15px;">{{ $item->quantity }}</span>
                             <button @click="updateQuantity({{ $item->id }}, {{ $item->quantity + 1 }})" 
-                                    class="btn btn-outline-secondary btn-mini">
-                                <i class="fas fa-plus"></i>
+                                    class="btn btn-mini"
+                                    style="background: #f8f9fa; border: 1px solid #dee2e6; color: #495057;">
+                                +
                             </button>
                         </div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-bold text-primary">${{ number_format($item->total_price, 2) }}</div>
-                        <button @click="removeItem({{ $item->id }})" class="btn btn-outline-danger btn-mini mt-1">
-                            <i class="fas fa-times"></i>
-                        </button>
+                        <span class="fw-bold" style="color: #0d6efd; font-size: 16px;">${{ number_format($item->total_price, 2) }}</span>
                     </div>
                 </div>
                 @endforeach
             @else
                 <div class="text-center text-muted py-4">
-                    <i class="fas fa-shopping-cart fa-2x mb-2"></i>
                     <p>Sin productos</p>
                 </div>
             @endif
@@ -214,30 +253,30 @@
         </div>
 
         <!-- Botones de Acción -->
-        <div class="d-grid gap-2">
+        <div class="d-flex flex-column gap-2 mt-auto">
             <button @click="updateOrderStatus('preparing')" 
                     :disabled="orderStatus === 'preparing'"
-                    :class="orderStatus === 'preparing' ? 'btn btn-outline-primary' : 'btn btn-primary'"
-                    class="w-100">
-                <i class="fas fa-clock me-1"></i>
+                    :class="orderStatus === 'preparing' ? 'btn-outline-primary' : 'btn-primary'"
+                    class="btn w-100 py-2">
+                <i class="fas fa-clock me-2"></i>
                 <span x-text="orderStatus === 'preparing' ? '✓ En Preparación' : 'En Preparación'"></span>
             </button>
             <button @click="updateOrderStatus('ready')" 
                     :disabled="orderStatus === 'ready'"
-                    :class="orderStatus === 'ready' ? 'btn btn-outline-success' : 'btn btn-success'"
-                    class="w-100">
-                <i class="fas fa-check me-1"></i>
+                    :class="orderStatus === 'ready' ? 'btn-outline-success' : 'btn-success'"
+                    class="btn w-100 py-2">
+                <i class="fas fa-check me-2"></i>
                 <span x-text="orderStatus === 'ready' ? '✓ Listo' : 'Listo'"></span>
             </button>
             <button onclick="openPaymentModal()" 
-                    class="btn btn-warning w-100">
-                <i class="fas fa-credit-card me-1"></i> Procesar Pago
+                    class="btn btn-warning w-100 py-2">
+                <i class="fas fa-credit-card me-2"></i> Procesar Pago
             </button>
             <button @click="updateOrderStatus('cancelled')" 
                     :disabled="orderStatus === 'cancelled'"
-                    class="btn btn-danger w-100"
+                    class="btn btn-danger w-100 py-2"
                     onclick="return confirm('¿Estás seguro de cancelar este pedido?')">
-                <i class="fas fa-times me-1"></i> Cancelar Pedido
+                <i class="fas fa-times me-2"></i> Cancelar Pedido
             </button>
         </div>
     </div>
@@ -282,28 +321,21 @@
         <div style="height: 400px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; padding: 10px;">
             <div class="products-grid" style="height: auto;">
                 @foreach($products as $product)
-                <div x-show="selectedCategory === null || selectedCategory === {{ $product->category_id }}" 
-                     class="product-card">
+                <button @click="addProduct({{ $product->id }})" 
+                        x-show="selectedCategory === null || selectedCategory === {{ $product->category_id }}" 
+                        class="product-card"
+                        style="background: white; border: 1px solid #e9ecef; cursor: pointer; transition: all 0.2s; width: 100%;">
                     <div class="text-center">
-                        <div class="mb-2">
-                            <div class="bg-light rounded p-2 mb-2">
-                                <i class="fas fa-utensils text-muted"></i>
-                            </div>
-                        </div>
-                        <h6 class="fw-bold mb-1" style="font-size: 12px;">{{ Str::limit($product->name, 18) }}</h6>
-                        <p class="text-muted mb-2" style="font-size: 10px;">{{ Str::limit($product->description, 25) }}</p>
-                        <div class="mb-2">
-                            <span class="fw-bold text-success">${{ number_format($product->price, 2) }}</span>
+                        <h6 class="fw-bold mb-2" style="font-size: 13px; color: #212529;">{{ Str::limit($product->name, 20) }}</h6>
+                        <p class="text-muted mb-2" style="font-size: 10px;">{{ Str::limit($product->description, 30) }}</p>
+                        <div>
+                            <span class="fw-bold" style="color: #0d6efd; font-size: 16px;">${{ number_format($product->price, 2) }}</span>
                             @if($product->is_featured)
-                            <span class="badge bg-warning text-dark ms-1" style="font-size: 8px;">⭐</span>
+                            <span class="ms-1" style="font-size: 10px;">⭐</span>
                             @endif
                         </div>
-                        <button @click="addProduct({{ $product->id }})" 
-                                class="btn btn-primary btn-compact w-100">
-                            Agregar
-                        </button>
                     </div>
-                </div>
+                </button>
                 @endforeach
             </div>
         </div>
@@ -533,9 +565,9 @@
 <!-- Modal de Procesamiento de Pagos -->
 <div id="paymentModal" 
      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
-     style="z-index: 9999; display: none;">
-    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
-        <div class="p-6">
+     style="z-index: 9999; display: none; overflow-y: auto;">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-2 my-4" style="max-height: 90vh; overflow-y: auto;">
+        <div class="p-4">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-semibold text-gray-900">Procesar Pago</h3>
                 <button onclick="document.getElementById('paymentModal').style.display='none'" 
@@ -545,7 +577,7 @@
             </div>
             
             <!-- Order Summary -->
-            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+            <div class="bg-gray-50 p-3 rounded-lg mb-3">
                 <div class="flex justify-between items-center">
                     <span class="font-medium">Total del Pedido:</span>
                     <span class="text-lg font-bold text-primary">${{ number_format($order->total_amount, 2) }}</span>
@@ -561,18 +593,18 @@
             </div>
 
             <!-- Payment Methods List -->
-            <div id="paymentsList" class="mb-4" style="display: none;">
-                <h4 class="font-medium text-gray-900 mb-2">Métodos de Pago Agregados:</h4>
+            <div id="paymentsList" class="mb-3" style="display: none;">
+                <h4 class="font-medium text-gray-900 mb-2 text-sm">Métodos de Pago Agregados:</h4>
                 <div id="paymentsContainer" class="space-y-2">
                     <!-- Payments will be added here dynamically -->
                 </div>
             </div>
 
             <!-- Add New Payment Form -->
-            <div id="addPaymentForm" class="border-t pt-4">
-                <h4 class="font-medium text-gray-900 mb-3">Agregar Método de Pago</h4>
+            <div id="addPaymentForm" class="border-t pt-3">
+                <h4 class="font-medium text-gray-900 mb-2 text-sm">Agregar Método de Pago</h4>
                 <form id="paymentForm">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="form-label">Método de Pago</label>
                             <select id="paymentMethod" class="form-select" required>
@@ -599,37 +631,37 @@
                         </div>
                     </div>
                     
-                    <div class="flex justify-end mt-4">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-plus me-1"></i> Agregar Pago
+                    <div class="flex justify-end mt-3">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            + Agregar Pago
                         </button>
                     </div>
                 </form>
             </div>
 
             <!-- Customer Data -->
-            <div class="border-t pt-4">
-                <h4 class="text-md font-semibold text-gray-900 mb-3">Datos del Cliente</h4>
+            <div class="border-t pt-3">
+                <h4 class="font-semibold text-gray-900 mb-2 text-sm">Datos del Cliente</h4>
                 
                 <!-- Customer Search/Add Toggle -->
-                <div class="mb-4">
-                    <div class="flex space-x-2">
+                <div class="mb-3">
+                    <div class="flex gap-2">
                         <button type="button" id="searchCustomerBtn" 
-                                class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white">
-                            Buscar Cliente Existente
+                                class="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white flex-1">
+                            Buscar Existente
                         </button>
                         <button type="button" id="newCustomerBtn" 
-                                class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700">
-                            Agregar Cliente Nuevo
+                                class="px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 flex-1">
+                            Cliente Nuevo
                         </button>
                     </div>
                 </div>
 
                 <!-- Customer Search -->
-                <div id="customerSearch" class="space-y-3">
+                <div id="customerSearch" class="space-y-2">
                     <div>
-                        <label class="form-label">Buscar por Cédula</label>
-                        <input type="text" id="customerSearchInput" class="form-input" 
+                        <label class="form-label text-xs">Buscar por Cédula</label>
+                        <input type="text" id="customerSearchInput" class="form-input form-input-sm" 
                                placeholder="Ingrese número de cédula">
                     </div>
                     <div id="searchResults" class="space-y-2" style="display: none;">
@@ -638,7 +670,7 @@
                 </div>
 
                 <!-- Customer Form -->
-                <div id="customerForm" class="space-y-3" style="display: none;">
+                <div id="customerForm" class="space-y-2" style="display: none;">
                     <div>
                         <label class="form-label">Nombre Completo</label>
                         <input type="text" id="customerName" class="form-input" 
@@ -671,14 +703,14 @@
                 </div>
             </div>
             
-            <div class="flex justify-end space-x-3 mt-6">
+            <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
                 <button onclick="document.getElementById('paymentModal').style.display='none'" 
-                        class="btn btn-secondary">
+                        class="btn btn-secondary btn-sm">
                     Cancelar
                 </button>
                 <button id="processPaymentBtn" 
-                        class="btn btn-primary" disabled>
-                    <i class="fas fa-credit-card me-1"></i> Procesar Pago
+                        class="btn btn-primary btn-sm" disabled>
+                    💳 Procesar Pago
                 </button>
             </div>
         </div>
