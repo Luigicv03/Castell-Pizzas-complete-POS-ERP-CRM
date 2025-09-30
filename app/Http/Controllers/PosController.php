@@ -207,7 +207,14 @@ class PosController extends Controller
 
     public function orderDetail(Order $order)
     {
-        $order->load(['customer', 'table', 'items.product', 'payments']);
+        $order->load([
+            'customer', 
+            'table', 
+            'items' => function($query) {
+                $query->whereNull('parent_id')->with(['product', 'children.product']);
+            }, 
+            'payments'
+        ]);
         $categories = \App\Models\Category::where('is_active', true)->get();
         $products = \App\Models\Product::where('is_active', true)->with('category')->get();
         
@@ -239,23 +246,44 @@ class PosController extends Controller
             $order = Order::findOrFail($orderId);
             $product = \App\Models\Product::findOrFail($request->product_id);
             
-            // Verificar si el producto ya existe en la orden
-            $existingItem = $order->items()->where('product_id', $product->id)->first();
+            // Verificar si el producto es una pizza
+            $isPizza = str_contains(strtolower($product->category->name ?? ''), 'pizza');
             
-            if ($existingItem) {
-                $existingItem->update([
-                    'quantity' => $existingItem->quantity + $request->quantity,
-                    'total_price' => ($existingItem->quantity + $request->quantity) * $existingItem->unit_price
-                ]);
-            } else {
+            if ($isPizza) {
+                // Para pizzas, SIEMPRE crear un nuevo item (no acumular)
+                // Esto permite agregar ingredientes diferentes a cada pizza
                 \App\Models\OrderItem::create([
                     'order_id' => $order->id,
+                    'parent_id' => null,
                     'product_id' => $product->id,
                     'quantity' => $request->quantity,
                     'unit_price' => $product->price,
                     'total_price' => $product->price * $request->quantity,
                     'status' => 'pending'
                 ]);
+            } else {
+                // Para productos que NO son pizzas, acumular como antes
+                $existingItem = $order->items()
+                    ->where('product_id', $product->id)
+                    ->whereNull('parent_id')
+                    ->first();
+                
+                if ($existingItem) {
+                    $existingItem->update([
+                        'quantity' => $existingItem->quantity + $request->quantity,
+                        'total_price' => ($existingItem->quantity + $request->quantity) * $existingItem->unit_price
+                    ]);
+                } else {
+                    \App\Models\OrderItem::create([
+                        'order_id' => $order->id,
+                        'parent_id' => null,
+                        'product_id' => $product->id,
+                        'quantity' => $request->quantity,
+                        'unit_price' => $product->price,
+                        'total_price' => $product->price * $request->quantity,
+                        'status' => 'pending'
+                    ]);
+                }
             }
 
             // Recalcular totales
@@ -435,7 +463,14 @@ class PosController extends Controller
      */
     public function printKitchenOrder($orderId)
     {
-        $order = Order::with(['items.product.category', 'table', 'customer', 'user'])->findOrFail($orderId);
+        $order = Order::with([
+            'items' => function($query) {
+                $query->whereNull('parent_id')->with(['product.category', 'children.product']);
+            },
+            'table', 
+            'customer', 
+            'user'
+        ])->findOrFail($orderId);
         
         // Filtrar productos para cocina (todas las categorías excepto bebidas)
         $kitchenItems = $order->items->filter(function($item) {
@@ -452,7 +487,14 @@ class PosController extends Controller
      */
     public function printBarOrder($orderId)
     {
-        $order = Order::with(['items.product.category', 'table', 'customer', 'user'])->findOrFail($orderId);
+        $order = Order::with([
+            'items' => function($query) {
+                $query->whereNull('parent_id')->with(['product.category', 'children.product']);
+            },
+            'table', 
+            'customer', 
+            'user'
+        ])->findOrFail($orderId);
         
         // Filtrar productos para barra (solo bebidas)
         $barItems = $order->items->filter(function($item) {
@@ -712,6 +754,106 @@ class PosController extends Controller
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error calculating delivery cost: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Obtener ingredientes por tamaño de pizza
+     */
+    public function getIngredientsBySize($size)
+    {
+        try {
+            // Normalizar el tamaño
+            $sizeMap = [
+                'personal' => 'Personal',
+                '25cm' => 'Personal',
+                'mediana' => 'Mediana',
+                '33cm' => 'Mediana',
+                'familiar' => 'Familiar',
+                '40cm' => 'Familiar',
+            ];
+            
+            $normalizedSize = $sizeMap[strtolower($size)] ?? $size;
+            
+            // Obtener ingredientes que contienen el tamaño en su nombre
+            $ingredients = Product::whereIn('category_id', function($query) {
+                $query->select('id')
+                      ->from('categories')
+                      ->whereIn('name', ['Ingredientes', 'Ingredientes Premium']);
+            })
+            ->where('is_active', true)
+            ->where('name', 'like', "%{$normalizedSize}%")
+            ->orderBy('category_id')
+            ->orderBy('sort_order')
+            ->get();
+            
+            return response()->json($ingredients);
+        } catch (\Exception $e) {
+            Log::error('Error getting ingredients by size: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Agregar ingrediente a un item de pizza
+     */
+    public function addIngredientToItem(Request $request, $orderId, $itemId)
+    {
+        try {
+            $request->validate([
+                'product_id' => 'required|exists:products,id',
+                'quantity' => 'required|integer|min:1'
+            ]);
+
+            $order = Order::findOrFail($orderId);
+            $parentItem = OrderItem::findOrFail($itemId);
+            $product = Product::findOrFail($request->product_id);
+            
+            // Si la pizza tiene cantidad > 1, debemos separarla
+            if ($parentItem->quantity > 1) {
+                // Reducir la cantidad de la pizza original
+                $parentItem->update([
+                    'quantity' => $parentItem->quantity - 1,
+                    'total_price' => $parentItem->unit_price * ($parentItem->quantity - 1)
+                ]);
+                
+                // Crear una nueva pizza con cantidad 1
+                $parentItem = OrderItem::create([
+                    'order_id' => $order->id,
+                    'parent_id' => null,
+                    'product_id' => $parentItem->product_id,
+                    'quantity' => 1,
+                    'unit_price' => $parentItem->unit_price,
+                    'total_price' => $parentItem->unit_price,
+                    'status' => 'pending'
+                ]);
+            }
+            
+            // Crear el ingrediente como hijo del item de pizza
+            $ingredientItem = OrderItem::create([
+                'order_id' => $order->id,
+                'parent_id' => $parentItem->id,
+                'product_id' => $product->id,
+                'quantity' => $request->quantity,
+                'unit_price' => $product->price,
+                'total_price' => $product->price * $request->quantity,
+                'status' => 'pending'
+            ]);
+
+            // Recalcular totales
+            $this->recalculateOrderTotals($order);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ingrediente agregado correctamente',
+                'ingredient' => $ingredientItem->load('product')
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error adding ingredient to item: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al agregar el ingrediente: ' . $e->getMessage()
+            ], 500);
         }
     }
 

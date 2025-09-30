@@ -42,6 +42,7 @@ Route::prefix('pos')->name('pos.')->group(function () {
     // Rutas para gestión de órdenes por mesa
     Route::get('/table/{tableId}/order', [App\Http\Controllers\PosController::class, 'showTableOrder'])->name('table.order');
     Route::post('/{orderId}/add-product', [App\Http\Controllers\PosController::class, 'addProductToOrder'])->name('add-product');
+    Route::post('/{orderId}/item/{itemId}/add-ingredient', [App\Http\Controllers\PosController::class, 'addIngredientToItem'])->name('add-ingredient');
     Route::delete('/{orderId}/item/{itemId}', [App\Http\Controllers\PosController::class, 'removeItemFromOrder'])->name('remove-item');
     Route::put('/{orderId}/item/{itemId}/quantity', [App\Http\Controllers\PosController::class, 'updateItemQuantity'])->name('update-quantity');
     
@@ -173,4 +174,5 @@ Route::prefix('api')->group(function () {
     Route::get('/orders/active', [App\Http\Controllers\PosController::class, 'getActiveOrders'])->name('api.orders.active');
     Route::get('/delivery/costs', [App\Http\Controllers\PosController::class, 'getDeliveryCosts'])->name('api.delivery.costs');
     Route::get('/delivery/calculate', [App\Http\Controllers\PosController::class, 'calculateDeliveryCost'])->name('api.delivery.calculate');
+    Route::get('/ingredients/by-size/{size}', [App\Http\Controllers\PosController::class, 'getIngredientsBySize'])->name('api.ingredients.by-size');
 });

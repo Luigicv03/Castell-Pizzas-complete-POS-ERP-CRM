@@ -160,8 +160,8 @@
             <button @click="printKitchenOrder()" class="btn btn-warning btn-compact">
                 <i class="fas fa-print"></i> Cocina
             </button>
-            <button @click="printBarOrder()" class="btn btn-info btn-compact">
-                <i class="fas fa-cocktail"></i> Barra
+            <button @click="printBarOrder()" class="btn btn-success btn-compact">
+                <i class="fas fa-print"></i> Caja
             </button>
         </div>
     </div>
@@ -185,7 +185,17 @@
                 @foreach($order->items as $item)
                 <div style="background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0 fw-bold" style="font-size: 14px;">{{ $item->product->name }}</h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <h6 class="mb-0 fw-bold" style="font-size: 14px;">{{ $item->product->name }}</h6>
+                            @if(str_contains(strtolower($item->product->category->name), 'pizza'))
+                            <button onclick="openIngredientsModal({{ $item->id }}, '{{ $item->product->name }}')" 
+                                    class="btn btn-mini"
+                                    style="background: #ffc107; border: 1px solid #ffc107; color: white; border-radius: 50%;"
+                                    title="Agregar ingredientes extras">
+                                🍕
+                            </button>
+                            @endif
+                        </div>
                         <button @click="removeItem({{ $item->id }})" 
                                 class="btn btn-mini"
                                 style="background: transparent; border: none; color: #dc3545; font-size: 20px; padding: 0; width: auto; height: auto;">
@@ -208,6 +218,25 @@
                         </div>
                         <span class="fw-bold" style="color: #0d6efd; font-size: 16px;">${{ number_format($item->total_price, 2) }}</span>
                     </div>
+                    
+                    @if($item->children && $item->children->count() > 0)
+                    <!-- Ingredientes extras -->
+                    <div class="mt-2 ps-3 border-start border-2 border-warning">
+                        @foreach($item->children as $child)
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <small class="text-muted">+ {{ $child->product->name }}</small>
+                            <div class="d-flex align-items-center gap-1">
+                                <small class="fw-bold text-success">${{ number_format($child->total_price, 2) }}</small>
+                                <button @click="removeItem({{ $child->id }})" 
+                                        class="btn btn-mini"
+                                        style="background: transparent; border: none; color: #dc3545; font-size: 14px; padding: 0; width: auto; height: auto;">
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
                 </div>
                 @endforeach
             @else
@@ -717,6 +746,37 @@
     </div>
 </div>
 
+<!-- Modal de Ingredientes -->
+<div id="ingredientsModal" 
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
+     style="z-index: 9999; display: none; overflow-y: auto;">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-2 my-4" style="max-height: 80vh; overflow-y: auto;">
+        <div class="p-4">
+            <div class="flex justify-content-between align-items-center mb-3">
+                <h3 class="text-lg font-semibold text-gray-900">Agregar Ingredientes</h3>
+                <button onclick="closeIngredientsModal()" 
+                        class="text-gray-400 hover:text-gray-600">
+                    <span style="font-size: 24px; line-height: 1;">×</span>
+                </button>
+            </div>
+            
+            <div class="mb-3">
+                <p class="text-sm text-gray-600" id="pizzaNameDisplay"></p>
+            </div>
+            
+            <div id="ingredientsList" class="space-y-2">
+                <!-- Ingredients will be loaded here -->
+            </div>
+            
+            <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
+                <button onclick="closeIngredientsModal()" class="btn btn-secondary btn-sm">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Alpine.js CDN como respaldo -->
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
@@ -725,6 +785,9 @@
 let payments = [];
 let customerMode = 'search';
 let orderTotal = {{ $order->total_amount }};
+let currentPizzaItemId = null;
+let currentPizzaName = '';
+let availableIngredients = [];
 
 // Función JavaScript pura para abrir el modal
 function openPaymentModal() {
@@ -1035,11 +1098,134 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Abrir modal de ingredientes
+async function openIngredientsModal(itemId, pizzaName) {
+    currentPizzaItemId = itemId;
+    currentPizzaName = pizzaName;
+    
+    document.getElementById('pizzaNameDisplay').textContent = `Ingredientes para: ${pizzaName}`;
+    
+    // Extraer el tamaño de la pizza del nombre
+    let size = 'Personal';
+    if (pizzaName.includes('Personal') || pizzaName.includes('25cm')) {
+        size = 'Personal';
+    } else if (pizzaName.includes('Mediana') || pizzaName.includes('33cm')) {
+        size = 'Mediana';
+    } else if (pizzaName.includes('Familiar') || pizzaName.includes('40cm')) {
+        size = 'Familiar';
+    }
+    
+    // Cargar ingredientes
+    try {
+        const response = await fetch(`/api/ingredients/by-size/${size}`);
+        availableIngredients = await response.json();
+        displayIngredients();
+        document.getElementById('ingredientsModal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading ingredients:', error);
+        alert('Error al cargar los ingredientes');
+    }
+}
+
+// Cerrar modal de ingredientes
+function closeIngredientsModal() {
+    document.getElementById('ingredientsModal').style.display = 'none';
+    currentPizzaItemId = null;
+    currentPizzaName = '';
+    availableIngredients = [];
+}
+
+// Mostrar ingredientes en el modal
+function displayIngredients() {
+    const container = document.getElementById('ingredientsList');
+    container.innerHTML = '';
+    
+    if (availableIngredients.length === 0) {
+        container.innerHTML = '<p class="text-center text-muted py-4">No hay ingredientes disponibles para este tamaño</p>';
+        return;
+    }
+    
+    // Agrupar por categoría
+    const grouped = {};
+    availableIngredients.forEach(ingredient => {
+        const categoryName = ingredient.category?.name || 'Otros';
+        if (!grouped[categoryName]) {
+            grouped[categoryName] = [];
+        }
+        grouped[categoryName].push(ingredient);
+    });
+    
+    // Renderizar por categoría
+    Object.keys(grouped).forEach(categoryName => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'mb-3';
+        categoryDiv.innerHTML = `<h6 class="fw-bold text-muted mb-2" style="font-size: 12px;">${categoryName}</h6>`;
+        
+        grouped[categoryName].forEach(ingredient => {
+            const ingredientDiv = document.createElement('div');
+            ingredientDiv.className = 'd-flex justify-content-between align-items-center p-2 border rounded mb-2';
+            ingredientDiv.style.cursor = 'pointer';
+            ingredientDiv.style.transition = 'all 0.2s';
+            ingredientDiv.innerHTML = `
+                <div>
+                    <div class="fw-bold" style="font-size: 13px;">${ingredient.name}</div>
+                    <div class="text-muted" style="font-size: 11px;">${ingredient.description || ''}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-bold text-success">$${parseFloat(ingredient.price).toFixed(2)}</span>
+                    <button onclick="addIngredientToPizza(${ingredient.id})" 
+                            class="btn btn-sm btn-primary">
+                        +
+                    </button>
+                </div>
+            `;
+            categoryDiv.appendChild(ingredientDiv);
+        });
+        
+        container.appendChild(categoryDiv);
+    });
+}
+
+// Agregar ingrediente a la pizza
+async function addIngredientToPizza(ingredientId) {
+    try {
+        const response = await fetch(`/pos/{{ $order->id }}/item/${currentPizzaItemId}/add-ingredient`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                product_id: ingredientId,
+                quantity: 1
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            closeIngredientsModal();
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error adding ingredient:', error);
+        alert('Error al agregar el ingrediente');
+    }
+}
+
 // Cerrar modal al hacer clic fuera
 window.onclick = function(event) {
-    const modal = document.getElementById('paymentModal');
-    if (event.target === modal) {
-        modal.style.display = 'none';
+    const paymentModal = document.getElementById('paymentModal');
+    const ingredientsModal = document.getElementById('ingredientsModal');
+    
+    if (event.target === paymentModal) {
+        paymentModal.style.display = 'none';
+    }
+    
+    if (event.target === ingredientsModal) {
+        ingredientsModal.style.display = 'none';
     }
 }
 </script>

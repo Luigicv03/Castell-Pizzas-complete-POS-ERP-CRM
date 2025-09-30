@@ -69,14 +69,17 @@
         }
         @media print {
             body { margin: 0; }
-            .no-print { display: none; }
+            .no-print { display: none !important; }
+            @page {
+                margin: 0;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1> BARRA PIZZERIA </h1>
-        <h2>Comanda #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h2>
+        <h1>CAJA - RESUMEN DEL PEDIDO</h1>
+        <h2>Orden #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h2>
     </div>
 
     <div class="order-info">
@@ -85,20 +88,37 @@
         <p><strong>Mesa:</strong> {{ $order->table->name }}</p>
         @endif
         <p><strong>Cliente:</strong> {{ $order->customer ? $order->customer->name : 'Cliente General' }}</p>
+        @if($order->customer && $order->customer->cedula)
+        <p><strong>Cédula:</strong> {{ $order->customer->cedula }}</p>
+        @endif
+        @if($order->customer && $order->customer->phone)
+        <p><strong>Teléfono:</strong> {{ $order->customer->phone }}</p>
+        @endif
         <p><strong>Hora:</strong> {{ $order->created_at->format('H:i') }}</p>
         <p><strong>Mesero:</strong> {{ $order->user->name }}</p>
     </div>
 
     <div class="items">
-        <h3>TODA LA ORDEN:</h3>
+        <h3>DETALLE DEL PEDIDO:</h3>
         @foreach($order->items as $item)
         <div class="item">
-            <div class="item-quantity">{{ $item->quantity }}x</div>
-            <div class="item-name">{{ $item->product->name }}</div>
-            <div class="item-price">${{ number_format($item->total_price, 2) }}</div>
-            @if($item->notes)
-            <div class="item-notes">Nota: {{ $item->notes }}</div>
-            @endif
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <div class="item-quantity">{{ $item->quantity }}x</div>
+                    <div class="item-name">{{ $item->product->name }}</div>
+                    @if($item->children && $item->children->count() > 0)
+                    <div style="margin-left: 20px; margin-top: 5px;">
+                        @foreach($item->children as $child)
+                        <div class="item-notes">+ {{ $child->product->name }} ({{ $child->quantity }}x) - ${{ number_format($child->total_price, 2) }}</div>
+                        @endforeach
+                    </div>
+                    @endif
+                    @if($item->notes)
+                    <div class="item-notes">Nota: {{ $item->notes }}</div>
+                    @endif
+                </div>
+                <div class="item-price">${{ number_format($item->total_price, 2) }}</div>
+            </div>
         </div>
         @endforeach
         
@@ -107,21 +127,12 @@
                 <span>Subtotal:</span>
                 <span>${{ number_format($order->subtotal, 2) }}</span>
             </div>
-            <div class="total-line">
-                <span>Impuestos (16%):</span>
-                <span>${{ number_format($order->tax_amount, 2) }}</span>
-            </div>
-            <div class="total-line total-final">
-                <span>TOTAL:</span>
-                <span>${{ number_format($order->total_amount, 2) }}</span>
-            </div>
         </div>
     </div>
 
-    <div class="footer">
-        <p>Impreso el {{ now()->format('d/m/Y H:i') }}</p>
-        <button onclick="window.print()" class="no-print">🖨️ Imprimir</button>
-        <button onclick="window.close()" class="no-print">❌ Cerrar</button>
+    <div class="footer no-print">
+        <button onclick="window.print()">🖨️ Imprimir</button>
+        <button onclick="window.close()">❌ Cerrar</button>
     </div>
 
     <script>

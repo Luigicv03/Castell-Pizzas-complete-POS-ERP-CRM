@@ -9,6 +9,7 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id',
+        'parent_id',
         'product_id',
         'quantity',
         'unit_price',
@@ -31,5 +32,15 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(OrderItem::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(OrderItem::class, 'parent_id');
     }
 }

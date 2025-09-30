@@ -54,7 +54,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🍕 COCINA 🍕</h1>
+        <h1>COCINA</h1>
         <h2>Comanda #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h2>
     </div>
 
@@ -75,6 +75,13 @@
             <div class="item">
                 <div class="item-quantity">{{ $item->quantity }}x</div>
                 <div class="item-name">{{ $item->product->name }}</div>
+                @if($item->children && $item->children->count() > 0)
+                <div style="margin-left: 20px; margin-top: 5px;">
+                    @foreach($item->children as $child)
+                    <div class="item-notes">+ {{ $child->product->name }} ({{ $child->quantity }}x)</div>
+                    @endforeach
+                </div>
+                @endif
                 @if($item->notes)
                 <div class="item-notes">Nota: {{ $item->notes }}</div>
                 @endif
