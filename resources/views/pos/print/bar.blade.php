@@ -8,24 +8,39 @@
         body {
             font-family: 'Courier New', monospace;
             font-size: 12px;
-            line-height: 1.4;
+            line-height: 1.2;
             margin: 0;
-            padding: 10px;
+            padding: 8px;
             background: white;
         }
         .header {
             text-align: center;
             border-bottom: 2px solid #000;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+        }
+        .header h1 {
+            margin: 0 0 3px 0;
+            font-size: 18px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 16px;
         }
         .order-info {
-            margin-bottom: 15px;
+            margin-bottom: 8px;
+        }
+        .order-info p {
+            margin: 2px 0;
+        }
+        .items h3 {
+            margin: 8px 0 5px 0;
+            font-size: 13px;
         }
         .item {
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             padding: 5px 0;
-            border-bottom: 1px dotted #ccc;
+            border-bottom: 1px solid #333;
         }
         .item-name {
             font-weight: bold;
@@ -36,23 +51,24 @@
             font-weight: bold;
         }
         .item-notes {
-            font-style: italic;
-            color: #666;
+            font-weight: bold;
+            color: #000;
             margin-top: 2px;
+            font-size: 12px;
         }
         .item-price {
             font-weight: bold;
             color: #333;
         }
         .totals {
-            margin-top: 15px;
+            margin-top: 8px;
             border-top: 2px solid #000;
-            padding-top: 10px;
+            padding-top: 8px;
         }
         .total-line {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
         .total-final {
             font-weight: bold;
@@ -107,7 +123,7 @@
                     <div class="item-quantity">{{ $item->quantity }}x</div>
                     <div class="item-name">{{ $item->product->name }}</div>
                     @if($item->children && $item->children->count() > 0)
-                    <div style="margin-left: 20px; margin-top: 5px;">
+                    <div style="margin-left: 15px; margin-top: 2px;">
                         @foreach($item->children as $child)
                         <div class="item-notes">+ {{ $child->product->name }} ({{ $child->quantity }}x) - ${{ number_format($child->total_price, 2) }}</div>
                         @endforeach
@@ -126,6 +142,16 @@
             <div class="total-line">
                 <span>Subtotal:</span>
                 <span>${{ number_format($order->subtotal, 2) }}</span>
+            </div>
+            @if($order->delivery_cost > 0)
+            <div class="total-line">
+                <span>Delivery:</span>
+                <span>${{ number_format($order->delivery_cost, 2) }}</span>
+            </div>
+            @endif
+            <div class="total-line total-final">
+                <span>TOTAL:</span>
+                <span>${{ number_format($order->total_amount, 2) }}</span>
             </div>
         </div>
     </div>

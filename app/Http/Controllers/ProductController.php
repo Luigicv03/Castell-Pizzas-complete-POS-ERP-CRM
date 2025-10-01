@@ -20,19 +20,10 @@ class ProductController extends Controller
      */
     public function index()
     {
-        $products = Product::with('category')->orderBy('name')->get();
-        $categories = Category::orderBy('name')->get();
+        $products = Product::with('category')->orderBy('sort_order')->orderBy('name')->get();
+        $categories = Category::where('is_active', true)->orderBy('name')->get();
         
         return view('products.index', compact('products', 'categories'));
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $categories = Category::orderBy('name')->get();
-        return view('products.create', compact('categories'));
     }
 
     /**
@@ -44,40 +35,33 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
+            'cost' => 'required|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
-            'is_available' => 'boolean',
+            'sku' => 'nullable|string|max:100|unique:products,sku',
+            'preparation_time' => 'nullable|integer|min:0',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
             'is_featured' => 'boolean',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        $data = $request->all();
-        
-        if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')->store('products', 'public');
-        }
+        $product = Product::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'price' => $request->price,
+            'cost' => $request->cost,
+            'category_id' => $request->category_id,
+            'sku' => $request->sku,
+            'preparation_time' => $request->preparation_time ?? 0,
+            'sort_order' => $request->sort_order ?? 0,
+            'is_active' => $request->is_active ?? true,
+            'is_featured' => $request->is_featured ?? false,
+        ]);
 
-        Product::create($data);
-
-        return redirect()->route('products.index')
-            ->with('success', 'Producto creado exitosamente.');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Product $product)
-    {
-        $product->load('category');
-        return view('products.show', compact('product'));
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Product $product)
-    {
-        $categories = Category::orderBy('name')->get();
-        return view('products.edit', compact('product', 'categories'));
+        return response()->json([
+            'success' => true,
+            'message' => 'Producto creado exitosamente',
+            'product' => $product->load('category')
+        ]);
     }
 
     /**
@@ -89,26 +73,33 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
+            'cost' => 'required|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
-            'is_available' => 'boolean',
+            'sku' => 'nullable|string|max:100|unique:products,sku,' . $product->id,
+            'preparation_time' => 'nullable|integer|min:0',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
             'is_featured' => 'boolean',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        $data = $request->all();
-        
-        if ($request->hasFile('image')) {
-            // Delete old image
-            if ($product->image) {
-                Storage::disk('public')->delete($product->image);
-            }
-            $data['image'] = $request->file('image')->store('products', 'public');
-        }
+        $product->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'price' => $request->price,
+            'cost' => $request->cost,
+            'category_id' => $request->category_id,
+            'sku' => $request->sku,
+            'preparation_time' => $request->preparation_time ?? 0,
+            'sort_order' => $request->sort_order ?? 0,
+            'is_active' => $request->is_active ?? true,
+            'is_featured' => $request->is_featured ?? false,
+        ]);
 
-        $product->update($data);
-
-        return redirect()->route('products.index')
-            ->with('success', 'Producto actualizado exitosamente.');
+        return response()->json([
+            'success' => true,
+            'message' => 'Producto actualizado exitosamente',
+            'product' => $product->fresh()->load('category')
+        ]);
     }
 
     /**
@@ -123,8 +114,10 @@ class ProductController extends Controller
 
         $product->delete();
 
-        return redirect()->route('products.index')
-            ->with('success', 'Producto eliminado exitosamente.');
+        return response()->json([
+            'success' => true,
+            'message' => 'Producto eliminado exitosamente'
+        ]);
     }
 
     /**
@@ -132,12 +125,12 @@ class ProductController extends Controller
      */
     public function toggleAvailability(Product $product)
     {
-        $product->update(['is_available' => !$product->is_available]);
+        $product->update(['is_active' => !$product->is_active]);
 
         return response()->json([
             'success' => true,
             'message' => 'Disponibilidad del producto actualizada.',
-            'is_available' => $product->is_available
+            'is_active' => $product->is_active
         ]);
     }
 

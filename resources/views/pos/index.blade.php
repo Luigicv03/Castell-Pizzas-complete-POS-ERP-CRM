@@ -123,7 +123,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                     </svg>
                                     <span class="text-sm text-gray-600" x-text="getActiveOrderTypeText(order.type)"></span>
-                                    <span x-show="order.table" class="text-sm text-gray-600" x-text="' - ' + order.table.name"></span>
+                                    <span x-show="order.table" class="text-sm text-gray-600" x-text="order.table ? ' - ' + order.table.name : ''"></span>
                                 </div>
                                 
                                 <div class="flex items-center space-x-2">
@@ -303,6 +303,7 @@
                     <div x-show="cart.length > 0" class="space-y-3 mb-4">
                         <template x-for="(item, index) in cart" :key="index">
                             <div class="bg-gray-50 rounded-lg p-3">
+                                <!-- Item Principal -->
                                 <div class="flex items-center justify-between mb-2">
                                     <h4 class="font-medium text-gray-900 text-sm" x-text="item.name"></h4>
                                     <button @click="removeFromCart(index)" class="text-danger-500 hover:text-danger-700 p-1">
@@ -327,9 +328,46 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                             </svg>
                                         </button>
+                                        
+                                        <!-- Botones de Ingredientes y Caja (solo para pizzas/calzones) -->
+                                        <template x-if="isPizzaOrCalzone(item) && !item.name.toLowerCase().includes('caja')">
+                                            <div class="flex items-center space-x-1 ml-2">
+                                                <button @click="openIngredientsModalPOS(index, item.name)" 
+                                                        class="w-6 h-6 rounded-full flex items-center justify-center text-sm"
+                                                        style="background: #ffc107; border: 1px solid #ffc107; color: white;"
+                                                        title="Agregar ingredientes">
+                                                    🍕
+                                                </button>
+                                                <button @click="addBoxToCartItem(index, item.name)" 
+                                                        class="w-6 h-6 rounded-full flex items-center justify-center text-sm"
+                                                        style="background: #795548; border: 1px solid #795548; color: white;"
+                                                        title="Agregar caja">
+                                                    📦
+                                                </button>
+                                            </div>
+                                        </template>
                                     </div>
-                                    <span class="font-bold text-primary-600 text-sm" x-text="'$' + (item.price * item.quantity).toFixed(2)"></span>
+                                    <span class="font-bold text-primary-600 text-sm" x-text="'$' + getItemTotal(item).toFixed(2)"></span>
                                 </div>
+                                
+                                <!-- Ingredientes/Extras (children) -->
+                                <template x-if="item.children && item.children.length > 0">
+                                    <div class="mt-2 pl-4 border-l-2 border-yellow-400 space-y-1">
+                                        <template x-for="(child, childIndex) in item.children" :key="childIndex">
+                                            <div class="flex items-center justify-between text-xs">
+                                                <span class="text-gray-600" x-text="`+ ${child.name} (${child.quantity}x)`"></span>
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="text-green-600 font-medium" x-text="'$' + (child.price * child.quantity).toFixed(2)"></span>
+                                                    <button @click="removeChild(index, childIndex)" class="text-red-500 hover:text-red-700">
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -526,9 +564,30 @@ function posSystem() {
         selectedOrderType: null,
         orderRefreshInterval: null,
         
+        // Inicializar event listeners
+        init() {
+            const self = this;
+            
+            // Listener para agregar ingredientes
+            window.addEventListener('add-ingredient-to-cart', (e) => {
+                const { cartIndex, ingredientId, ingredientName, ingredientPrice } = e.detail;
+                self.addIngredientToItem(cartIndex, ingredientId, ingredientName, ingredientPrice);
+            });
+            
+            // Listener para agregar cajas
+            window.addEventListener('add-box-to-cart', (e) => {
+                const { cartIndex, boxId, boxName, boxPrice } = e.detail;
+                self.addBoxToItem(cartIndex, boxId, boxName, boxPrice);
+            });
+            
+            console.log('Alpine POS System initialized with event listeners');
+        },
 
         get subtotal() {
-            return this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            return this.cart.reduce((sum, item) => {
+                const itemTotal = this.getItemTotal(item);
+                return sum + itemTotal;
+            }, 0);
         },
 
         get tax() {
@@ -546,17 +605,124 @@ function posSystem() {
         },
 
         addToCart(productId, name, price) {
-            const existingItem = this.cart.find(item => item.productId === productId);
-            if (existingItem) {
-                existingItem.quantity += 1;
-            } else {
+            // Detectar si es pizza o calzone
+            const isPizza = name.toLowerCase().includes('pizza') && !name.toLowerCase().includes('caja');
+            const isCalzone = name.toLowerCase().includes('calzone');
+            
+            // Si es pizza o calzone, SIEMPRE crear un nuevo item (no acumular)
+            if (isPizza || isCalzone) {
                 this.cart.push({
                     productId: productId,
                     name: name,
                     price: price,
+                    quantity: 1,
+                    children: [] // Array para ingredientes/extras
+                });
+            } else {
+                // Para otros productos, acumular como antes
+                const existingItem = this.cart.find(item => item.productId === productId);
+                if (existingItem) {
+                    existingItem.quantity += 1;
+                } else {
+                    this.cart.push({
+                        productId: productId,
+                        name: name,
+                        price: price,
+                        quantity: 1,
+                        children: []
+                    });
+                }
+            }
+        },
+        
+        // Calcular el total de un item incluyendo sus children
+        getItemTotal(item) {
+            let total = item.price * item.quantity;
+            if (item.children && item.children.length > 0) {
+                item.children.forEach(child => {
+                    total += child.price * child.quantity;
+                });
+            }
+            return total;
+        },
+        
+        // Verificar si un item es pizza o calzone
+        isPizzaOrCalzone(item) {
+            const name = item.name.toLowerCase();
+            return (name.includes('pizza') || name.includes('calzone')) && !name.includes('caja');
+        },
+        
+        // Remover un child (ingrediente/caja)
+        removeChild(parentIndex, childIndex) {
+            this.cart[parentIndex].children.splice(childIndex, 1);
+        },
+        
+        // Agregar ingrediente a un item del carrito (llamado desde función global)
+        addIngredientToItem(cartIndex, ingredientId, ingredientName, ingredientPrice) {
+            console.log('Alpine: Adding ingredient to index', cartIndex);
+            
+            if (cartIndex < 0 || cartIndex >= this.cart.length) {
+                console.error('Invalid cart index:', cartIndex, 'Cart length:', this.cart.length);
+                alert('Error: Item no encontrado en el carrito');
+                return;
+            }
+            
+            const item = this.cart[cartIndex];
+            
+            if (!item.children) {
+                item.children = [];
+            }
+            
+            const existing = item.children.find(c => c.productId === ingredientId);
+            if (existing) {
+                existing.quantity += 1;
+            } else {
+                item.children.push({
+                    productId: ingredientId,
+                    name: ingredientName,
+                    price: ingredientPrice,
                     quantity: 1
                 });
             }
+            
+            // Forzar actualización
+            this.cart = [...this.cart];
+            
+            alert(`✓ ${ingredientName} agregado correctamente`);
+        },
+        
+        // Agregar caja a un item del carrito (llamado desde función global)
+        async addBoxToItem(cartIndex, boxId, boxName, boxPrice) {
+            console.log('Alpine: Adding box to index', cartIndex);
+            
+            if (cartIndex < 0 || cartIndex >= this.cart.length) {
+                alert('Error: Índice de carrito inválido');
+                return;
+            }
+            
+            const item = this.cart[cartIndex];
+            
+            if (!item.children) {
+                item.children = [];
+            }
+            
+            const hasBox = item.children.some(c => c.name.toLowerCase().includes('caja'));
+            if (hasBox) {
+                alert('Esta pizza ya tiene una caja agregada');
+                return;
+            }
+            
+            item.children.push({
+                productId: boxId,
+                name: boxName,
+                price: boxPrice,
+                quantity: 1
+            });
+            
+            // Forzar actualización
+            this.cart = [...this.cart];
+            
+            alert(`✓ ${boxName} agregada correctamente`);
         },
 
         removeFromCart(index) {
@@ -721,7 +887,8 @@ function posSystem() {
                 items: this.cart.map(item => ({
                     product_id: item.productId,
                     quantity: item.quantity,
-                    unit_price: item.price
+                    unit_price: item.price,
+                    children: item.children && item.children.length > 0 ? item.children : []
                 })),
                 subtotal: this.subtotal,
                 tax_amount: 0, // Los precios ya incluyen IVA
@@ -731,7 +898,8 @@ function posSystem() {
                 _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             };
 
-            console.log('Enviando pedido:', orderData);
+            console.log('Enviando pedido con children:', orderData);
+            console.log('Items en el carrito:', this.cart);
 
             fetch('/pos', {
                 method: 'POST',
@@ -929,5 +1097,220 @@ function posSystem() {
     }
 }
 
+// Variables globales para el modal de ingredientes en POS
+let currentCartIndexPOS = null;
+let currentPizzaNamePOS = '';
+let availableIngredientsPOS = [];
+
+// Abrir modal de ingredientes en POS
+async function openIngredientsModalPOS(cartIndex, pizzaName) {
+    currentCartIndexPOS = cartIndex;
+    currentPizzaNamePOS = pizzaName;
+    
+    document.getElementById('pizzaNameDisplayPOS').textContent = `Ingredientes para: ${pizzaName}`;
+    
+    // Determinar el tamaño basado en el nombre del producto
+    let size = 'Personal';
+    
+    if (pizzaName.toLowerCase().includes('calzone')) {
+        size = 'Calzone';
+    } else if (pizzaName.includes('Personal') || pizzaName.includes('25cm')) {
+        size = 'Personal';
+    } else if (pizzaName.includes('Mediana') || pizzaName.includes('33cm')) {
+        size = 'Mediana';
+    } else if (pizzaName.includes('Familiar') || pizzaName.includes('40cm')) {
+        size = 'Familiar';
+    }
+    
+    // Cargar ingredientes
+    try {
+        console.log('Fetching ingredients for size:', size);
+        const response = await fetch(`/api/ingredients/by-size/${size}`);
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        availableIngredientsPOS = await response.json();
+        console.log('Ingredients loaded:', availableIngredientsPOS.length);
+        console.log('Sample ingredient:', availableIngredientsPOS[0]);
+        
+        displayIngredientsPOS();
+        document.getElementById('ingredientsModalPOS').style.display = 'flex';
+    } catch (error) {
+        console.error('Error loading ingredients:', error);
+        alert('Error al cargar los ingredientes: ' + error.message);
+    }
+}
+
+// Cerrar modal de ingredientes
+function closeIngredientsModalPOS() {
+    document.getElementById('ingredientsModalPOS').style.display = 'none';
+    currentCartIndexPOS = null;
+    currentPizzaNamePOS = '';
+    availableIngredientsPOS = [];
+}
+
+// Mostrar ingredientes en el modal
+function displayIngredientsPOS() {
+    const container = document.getElementById('ingredientsListPOS');
+    container.innerHTML = '';
+    
+    if (availableIngredientsPOS.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #6c757d;">No hay ingredientes disponibles para este tamaño</p>';
+        return;
+    }
+    
+    // Agrupar por categoría
+    const grouped = {};
+    availableIngredientsPOS.forEach(ing => {
+        const catName = ing.category ? ing.category.name : 'Sin categoría';
+        if (!grouped[catName]) {
+            grouped[catName] = [];
+        }
+        grouped[catName].push(ing);
+    });
+    
+    // Mostrar por categoría
+    Object.keys(grouped).forEach(categoryName => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.style.marginBottom = '15px';
+        
+        const categoryTitle = document.createElement('h4');
+        categoryTitle.textContent = categoryName;
+        categoryTitle.style.fontSize = '14px';
+        categoryTitle.style.fontWeight = 'bold';
+        categoryTitle.style.color = '#495057';
+        categoryTitle.style.marginBottom = '8px';
+        categoryDiv.appendChild(categoryTitle);
+        
+        grouped[categoryName].forEach(ingredient => {
+            const ingredientBtn = document.createElement('button');
+            ingredientBtn.className = 'btn btn-outline-primary btn-sm';
+            ingredientBtn.style.width = '100%';
+            ingredientBtn.style.textAlign = 'left';
+            ingredientBtn.style.display = 'flex';
+            ingredientBtn.style.justifyContent = 'space-between';
+            ingredientBtn.style.alignItems = 'center';
+            ingredientBtn.style.marginBottom = '5px';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = ingredient.name;
+            
+            const priceSpan = document.createElement('span');
+            priceSpan.style.fontWeight = 'bold';
+            priceSpan.textContent = `$${parseFloat(ingredient.price).toFixed(2)}`;
+            
+            ingredientBtn.appendChild(nameSpan);
+            ingredientBtn.appendChild(priceSpan);
+            
+            ingredientBtn.onclick = () => addIngredientToCartItem(ingredient.id, ingredient.name, parseFloat(ingredient.price));
+            
+            categoryDiv.appendChild(ingredientBtn);
+        });
+        
+        container.appendChild(categoryDiv);
+    });
+}
+
+// Agregar ingrediente al item del carrito
+function addIngredientToCartItem(ingredientId, ingredientName, ingredientPrice) {
+    console.log('Global: Adding ingredient', ingredientName, 'to cart index', currentCartIndexPOS);
+    
+    // Disparar evento personalizado para que Alpine lo maneje
+    window.dispatchEvent(new CustomEvent('add-ingredient-to-cart', {
+        detail: {
+            cartIndex: currentCartIndexPOS,
+            ingredientId: ingredientId,
+            ingredientName: ingredientName,
+            ingredientPrice: ingredientPrice
+        }
+    }));
+}
+
+// Agregar caja al item del carrito
+async function addBoxToCartItem(cartIndex, pizzaName) {
+    console.log('Global: Adding box to cart index', cartIndex, 'Pizza:', pizzaName);
+    
+    // Determinar el tamaño de la caja
+    let boxName = 'Caja Personal';
+    if (pizzaName.toLowerCase().includes('personal') || pizzaName.includes('25cm')) {
+        boxName = 'Caja Personal';
+    } else if (pizzaName.toLowerCase().includes('mediana') || pizzaName.includes('33cm')) {
+        boxName = 'Caja Mediana';
+    } else if (pizzaName.toLowerCase().includes('familiar') || pizzaName.includes('40cm')) {
+        boxName = 'Caja Familiar';
+    }
+    
+    try {
+        // Buscar el producto de la caja
+        const response = await fetch('/api/products/search-by-name', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ name: boxName })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const box = await response.json();
+        
+        if (!box || !box.id) {
+            alert('No se encontró la caja: ' + boxName);
+            return;
+        }
+        
+        // Disparar evento para que Alpine lo maneje
+        window.dispatchEvent(new CustomEvent('add-box-to-cart', {
+            detail: {
+                cartIndex: cartIndex,
+                boxId: box.id,
+                boxName: box.name,
+                boxPrice: parseFloat(box.price)
+            }
+        }));
+        
+    } catch (error) {
+        console.error('Error fetching box:', error);
+        alert('Error al agregar la caja: ' + error.message);
+    }
+}
+
 </script>
+
+<!-- Modal de Ingredientes para POS -->
+<div id="ingredientsModalPOS" 
+     style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; margin: auto;">
+        <div style="padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 15px;">
+                <h3 style="font-size: 20px; font-weight: bold; color: #212529; margin: 0;">🍕 Agregar Ingredientes</h3>
+                <button onclick="closeIngredientsModalPOS()" 
+                        style="background: transparent; border: none; color: #dc3545; font-size: 28px; line-height: 1; cursor: pointer; padding: 0; width: 30px; height: 30px;">
+                    ×
+                </button>
+            </div>
+            
+            <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                <p style="margin: 0; font-size: 14px; color: #495057; font-weight: 500;" id="pizzaNameDisplayPOS"></p>
+            </div>
+            
+            <div id="ingredientsListPOS" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Ingredients will be loaded here -->
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                <button onclick="closeIngredientsModalPOS()" class="btn btn-secondary">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection

@@ -184,26 +184,20 @@
             @if($order->items->count() > 0)
                 @foreach($order->items as $item)
                 <div style="background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                    <!-- Header: Nombre del producto y botón eliminar -->
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <h6 class="mb-0 fw-bold" style="font-size: 14px;">{{ $item->product->name }}</h6>
-                            @if(str_contains(strtolower($item->product->category->name), 'pizza'))
-                            <button onclick="openIngredientsModal({{ $item->id }}, '{{ $item->product->name }}')" 
-                                    class="btn btn-mini"
-                                    style="background: #ffc107; border: 1px solid #ffc107; color: white; border-radius: 50%;"
-                                    title="Agregar ingredientes extras">
-                                🍕
-                            </button>
-                            @endif
-                        </div>
+                        <h6 class="mb-0 fw-bold" style="font-size: 14px;">{{ $item->product->name }}</h6>
                         <button @click="removeItem({{ $item->id }})" 
                                 class="btn btn-mini"
                                 style="background: transparent; border: none; color: #dc3545; font-size: 20px; padding: 0; width: auto; height: auto;">
                             ×
                         </button>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-2">
+                    
+                    <!-- Controles: Cantidad, Botón Pizza (si aplica), Precio - TODO EN UNA LÍNEA -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                        <!-- Controles de cantidad -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
                             <button @click="updateQuantity({{ $item->id }}, {{ $item->quantity - 1 }})" 
                                     class="btn btn-mini"
                                     style="background: #f8f9fa; border: 1px solid #dee2e6; color: #495057;">
@@ -215,7 +209,31 @@
                                     style="background: #f8f9fa; border: 1px solid #dee2e6; color: #495057;">
                                 +
                             </button>
+                            
+                            <!-- Botón de Ingredientes (para pizzas y calzones, excepto Caja de Pizza) -->
+                            @php
+                                $categoryName = strtolower($item->product->category->name ?? '');
+                                $productName = strtolower($item->product->name ?? '');
+                                $showIngredientsBtn = (str_contains($categoryName, 'pizza') || str_contains($categoryName, 'calzone') || str_contains($productName, 'calzone')) 
+                                                      && !str_contains($productName, 'caja');
+                            @endphp
+                            @if($showIngredientsBtn)
+                            <button onclick="openIngredientsModal({{ $item->id }}, '{{ $item->product->name }}')" 
+                                    class="btn btn-mini"
+                                    style="background: #ffc107; border: 1px solid #ffc107; color: white; border-radius: 50%; width: 28px; height: 28px; margin-left: 5px;"
+                                    title="Agregar ingredientes extras">
+                                🍕
+                            </button>
+                            <button onclick="addBoxToPizza({{ $item->id }}, '{{ $item->product->name }}')" 
+                                    class="btn btn-mini"
+                                    style="background: #795548; border: 1px solid #795548; color: white; border-radius: 50%; width: 28px; height: 28px; margin-left: 5px;"
+                                    title="Agregar caja">
+                                📦
+                            </button>
+                            @endif
                         </div>
+                        
+                        <!-- Precio a la derecha -->
                         <span class="fw-bold" style="color: #0d6efd; font-size: 16px;">${{ number_format($item->total_price, 2) }}</span>
                     </div>
                     
@@ -297,7 +315,7 @@
                 <i class="fas fa-check me-2"></i>
                 <span x-text="orderStatus === 'ready' ? '✓ Listo' : 'Listo'"></span>
             </button>
-            <button onclick="openPaymentModal()" 
+            <button @click="openPaymentModal()" 
                     class="btn btn-warning w-100 py-2">
                 <i class="fas fa-credit-card me-2"></i> Procesar Pago
             </button>
@@ -370,9 +388,7 @@
         </div>
     </div>
 
-</div>
-
-    <!-- Payment Modal -->
+    <!-- Payment Modal (dentro del scope de Alpine) -->
     <div x-show="showPaymentModal" 
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="opacity-0"
@@ -381,25 +397,26 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
          class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
-         style="z-index: 9999;">
-        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4" 
+         style="z-index: 9999; padding: 20px; overflow-y: auto;">
+        <div class="bg-white rounded-lg shadow-xl w-full mx-auto" 
              @click.away="showPaymentModal = false"
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 transform scale-95"
              x-transition:enter-end="opacity-100 transform scale-100"
              x-transition:leave="transition ease-in duration-200"
              x-transition:leave-start="opacity-100 transform scale-100"
-             x-transition:leave-end="opacity-0 transform scale-95">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Procesar Pago</h3>
+             x-transition:leave-end="opacity-0 transform scale-95"
+             style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+            <div class="p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-base font-semibold text-gray-900">Procesar Pago</h3>
                     <button @click="showPaymentModal = false" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 
                 <!-- Order Summary -->
-                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                <div class="bg-gray-50 p-3 rounded-lg mb-3">
                     <div class="flex justify-between items-center">
                         <span class="font-medium">Total del Pedido:</span>
                         <span class="text-lg font-bold text-primary">${{ number_format($order->total_amount, 2) }}</span>
@@ -417,20 +434,20 @@
                 </div>
 
                 <!-- Payment Methods List -->
-                <div x-show="payments.length > 0" class="mb-4">
-                    <h4 class="font-medium text-gray-900 mb-2">Métodos de Pago Agregados:</h4>
+                <div x-show="payments.length > 0" class="mb-3">
+                    <h4 class="font-medium text-gray-900 mb-2 text-sm">Métodos de Pago Agregados:</h4>
                     <div class="space-y-2">
                         <template x-for="(payment, index) in payments" :key="index">
-                            <div class="flex justify-between items-center bg-gray-100 p-3 rounded">
+                            <div class="flex justify-between items-center bg-gray-100 p-2 rounded text-sm">
                                 <div>
                                     <span class="font-medium" x-text="getPaymentMethodText(payment.method)"></span>
-                                    <span x-show="payment.reference" class="text-sm text-gray-600 ml-2">
+                                    <span x-show="payment.reference" class="text-xs text-gray-600 ml-2">
                                         (Ref: <span x-text="payment.reference"></span>)
                                     </span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold">$<span x-text="payment.amount.toFixed(2)"></span></span>
-                                    <button @click="removePayment(index)" class="text-danger hover:text-danger-700">
+                                    <button @click="removePayment(index)" class="text-danger hover:text-danger-700 text-sm">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </div>
@@ -440,10 +457,10 @@
                 </div>
 
                 <!-- Add New Payment Form -->
-                <div x-show="remainingAmount > 0" class="border-t pt-4">
-                    <h4 class="font-medium text-gray-900 mb-3">Agregar Método de Pago</h4>
+                <div x-show="remainingAmount > 0" class="border-t pt-3">
+                    <h4 class="font-medium text-gray-900 mb-2 text-sm">Agregar Método de Pago</h4>
                     <form @submit.prevent="addPayment()">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                                 <label class="form-label">Método de Pago</label>
                                 <select x-model="currentPayment.method" class="form-select" required>
@@ -471,8 +488,8 @@
                             </div>
                         </div>
                         
-                        <div class="flex justify-end mt-4">
-                            <button type="submit" class="btn btn-primary">
+                        <div class="flex justify-end mt-3">
+                            <button type="submit" class="btn btn-primary btn-sm">
                                 <i class="fas fa-plus me-1"></i> Agregar Pago
                             </button>
                         </div>
@@ -480,21 +497,21 @@
                 </div>
 
                 <!-- Customer Data -->
-                <div class="border-t pt-4">
-                    <h4 class="text-md font-semibold text-gray-900 mb-3">Datos del Cliente</h4>
+                <div class="border-t pt-3">
+                    <h4 class="text-sm font-semibold text-gray-900 mb-2">Datos del Cliente</h4>
                             
                             <!-- Customer Search/Add Toggle -->
-                            <div class="mb-4">
-                                <div class="flex space-x-2">
+                            <div class="mb-3">
+                                <div class="flex gap-2">
                                     <button type="button" @click="customerMode = 'search'" 
                                             :class="customerMode === 'search' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
-                                            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                                        Buscar Cliente Existente
+                                            class="px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1">
+                                        Buscar Existente
                                     </button>
                                     <button type="button" @click="customerMode = 'new'" 
                                             :class="customerMode === 'new' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
-                                            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                                        Agregar Cliente Nuevo
+                                            class="px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1">
+                                        Cliente Nuevo
                                     </button>
                                 </div>
                             </div>
@@ -537,239 +554,84 @@
                             </div>
 
                             <!-- Customer Form -->
-                            <div x-show="customerMode === 'new' || (customerMode === 'search' && selectedCustomer)" class="space-y-3">
+                            <div x-show="customerMode === 'new' || (customerMode === 'search' && selectedCustomer)" class="space-y-2">
                                 <div>
-                                    <label class="form-label">Nombre Completo</label>
-                                    <input type="text" x-model="customerData.name" class="form-input" 
+                                    <label class="form-label text-xs">Nombre Completo</label>
+                                    <input type="text" x-model="customerData.name" class="form-input form-input-sm" 
                                            placeholder="Nombre del cliente" required>
                                 </div>
                                 
                                 <div>
-                                    <label class="form-label">Email</label>
-                                    <input type="email" x-model="customerData.email" class="form-input" 
+                                    <label class="form-label text-xs">Email</label>
+                                    <input type="email" x-model="customerData.email" class="form-input form-input-sm" 
                                            placeholder="email@ejemplo.com">
                                 </div>
                                 
                                 <div>
-                                    <label class="form-label">Teléfono</label>
-                                    <input type="tel" x-model="customerData.phone" class="form-input" 
+                                    <label class="form-label text-xs">Teléfono</label>
+                                    <input type="tel" x-model="customerData.phone" class="form-input form-input-sm" 
                                            placeholder="Número de teléfono">
                                 </div>
                                 
                                 <div>
-                                    <label class="form-label">Cédula</label>
+                                    <label class="form-label text-xs">Cédula</label>
                                     <input type="text" x-model="customerData.cedula" 
                                            @input="checkCedulaExists()"
-                                           class="form-input" 
+                                           class="form-input form-input-sm" 
                                            placeholder="Número de cédula">
-                                    <div x-show="cedulaExists" class="text-sm text-orange-600 mt-1">
-                                        ⚠️ Esta cédula ya está registrada. Se actualizarán los datos del cliente existente.
+                                    <div x-show="cedulaExists" class="text-xs text-orange-600 mt-1">
+                                        ⚠️ Esta cédula ya está registrada.
                                     </div>
                                 </div>
                                 
                                 <div>
-                                    <label class="form-label">Dirección</label>
-                                    <textarea x-model="customerData.address" class="form-textarea" 
+                                    <label class="form-label text-xs">Dirección</label>
+                                    <textarea x-model="customerData.address" class="form-textarea form-input-sm" rows="2"
                                               placeholder="Dirección completa"></textarea>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="flex justify-end space-x-3 mt-6">
-                        <button type="button" @click="showPaymentModal = false" class="btn btn-secondary">
+                    <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
+                        <button type="button" @click="showPaymentModal = false" class="btn btn-secondary btn-sm">
                             Cancelar
                         </button>
                         <button type="button" @click="processPayment()" 
                                 :disabled="remainingAmount > 0 || payments.length === 0"
-                                class="btn btn-primary">
+                                class="btn btn-primary btn-sm">
                             <i class="fas fa-credit-card me-1"></i> Procesar Pago
                         </button>
                     </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Modal de Procesamiento de Pagos -->
-<div id="paymentModal" 
-     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
-     style="z-index: 9999; display: none; overflow-y: auto;">
-    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-2 my-4" style="max-height: 90vh; overflow-y: auto;">
-        <div class="p-4">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-gray-900">Procesar Pago</h3>
-                <button onclick="document.getElementById('paymentModal').style.display='none'" 
-                        class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <!-- Order Summary -->
-            <div class="bg-gray-50 p-3 rounded-lg mb-3">
-                <div class="flex justify-between items-center">
-                    <span class="font-medium">Total del Pedido:</span>
-                    <span class="text-lg font-bold text-primary">${{ number_format($order->total_amount, 2) }}</span>
-                </div>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="font-medium">Pagado:</span>
-                    <span class="text-lg font-bold text-success">$<span id="totalPaid">0.00</span></span>
-                </div>
-                <div class="flex justify-between items-center mt-2 border-t pt-2">
-                    <span class="font-bold">Restante:</span>
-                    <span class="text-xl font-bold text-danger">$<span id="remainingAmount">{{ number_format($order->total_amount, 2) }}</span></span>
-                </div>
-            </div>
-
-            <!-- Payment Methods List -->
-            <div id="paymentsList" class="mb-3" style="display: none;">
-                <h4 class="font-medium text-gray-900 mb-2 text-sm">Métodos de Pago Agregados:</h4>
-                <div id="paymentsContainer" class="space-y-2">
-                    <!-- Payments will be added here dynamically -->
-                </div>
-            </div>
-
-            <!-- Add New Payment Form -->
-            <div id="addPaymentForm" class="border-t pt-3">
-                <h4 class="font-medium text-gray-900 mb-2 text-sm">Agregar Método de Pago</h4>
-                <form id="paymentForm">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label class="form-label">Método de Pago</label>
-                            <select id="paymentMethod" class="form-select" required>
-                                <option value="">Seleccionar método</option>
-                                <option value="cash">Efectivo</option>
-                                <option value="mobile_payment">Pago Móvil</option>
-                                <option value="zelle">Zelle</option>
-                                <option value="binance">Binance</option>
-                                <option value="pos">Punto de Venta</option>
-                                <option value="transfer">Transferencia</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="form-label">Monto</label>
-                            <input type="number" id="paymentAmount" step="0.01" min="0.01" 
-                                   class="form-input" required>
-                        </div>
-                        
-                        <div id="referenceField" style="display: none;" class="md:col-span-2">
-                            <label class="form-label">Referencia</label>
-                            <input type="text" id="paymentReference" class="form-input" 
-                                   placeholder="Número de referencia">
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-end mt-3">
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            + Agregar Pago
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Customer Data -->
-            <div class="border-t pt-3">
-                <h4 class="font-semibold text-gray-900 mb-2 text-sm">Datos del Cliente</h4>
-                
-                <!-- Customer Search/Add Toggle -->
-                <div class="mb-3">
-                    <div class="flex gap-2">
-                        <button type="button" id="searchCustomerBtn" 
-                                class="px-3 py-1.5 rounded text-xs font-medium bg-blue-600 text-white flex-1">
-                            Buscar Existente
-                        </button>
-                        <button type="button" id="newCustomerBtn" 
-                                class="px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 flex-1">
-                            Cliente Nuevo
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Customer Search -->
-                <div id="customerSearch" class="space-y-2">
-                    <div>
-                        <label class="form-label text-xs">Buscar por Cédula</label>
-                        <input type="text" id="customerSearchInput" class="form-input form-input-sm" 
-                               placeholder="Ingrese número de cédula">
-                    </div>
-                    <div id="searchResults" class="space-y-2" style="display: none;">
-                        <!-- Search results will be added here -->
-                    </div>
-                </div>
-
-                <!-- Customer Form -->
-                <div id="customerForm" class="space-y-2" style="display: none;">
-                    <div>
-                        <label class="form-label">Nombre Completo</label>
-                        <input type="text" id="customerName" class="form-input" 
-                               placeholder="Nombre del cliente" required>
-                    </div>
-                    
-                    <div>
-                        <label class="form-label">Email</label>
-                        <input type="email" id="customerEmail" class="form-input" 
-                               placeholder="email@ejemplo.com">
-                    </div>
-                    
-                    <div>
-                        <label class="form-label">Teléfono</label>
-                        <input type="tel" id="customerPhone" class="form-input" 
-                               placeholder="Número de teléfono">
-                    </div>
-                    
-                    <div>
-                        <label class="form-label">Cédula</label>
-                        <input type="text" id="customerCedula" class="form-input" 
-                               placeholder="Número de cédula" required>
-                    </div>
-                    
-                    <div>
-                        <label class="form-label">Dirección</label>
-                        <textarea id="customerAddress" class="form-textarea" 
-                                  placeholder="Dirección completa"></textarea>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
-                <button onclick="document.getElementById('paymentModal').style.display='none'" 
-                        class="btn btn-secondary btn-sm">
-                    Cancelar
-                </button>
-                <button id="processPaymentBtn" 
-                        class="btn btn-primary btn-sm" disabled>
-                    💳 Procesar Pago
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+</div><!-- Fin del componente Alpine orderDetailSystem -->
 
 <!-- Modal de Ingredientes -->
 <div id="ingredientsModal" 
-     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
-     style="z-index: 9999; display: none; overflow-y: auto;">
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-2 my-4" style="max-height: 80vh; overflow-y: auto;">
-        <div class="p-4">
-            <div class="flex justify-content-between align-items-center mb-3">
-                <h3 class="text-lg font-semibold text-gray-900">Agregar Ingredientes</h3>
+     style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; margin: auto;">
+        <div style="padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 15px;">
+                <h3 style="font-size: 20px; font-weight: bold; color: #212529; margin: 0;">🍕 Agregar Ingredientes</h3>
                 <button onclick="closeIngredientsModal()" 
-                        class="text-gray-400 hover:text-gray-600">
-                    <span style="font-size: 24px; line-height: 1;">×</span>
+                        style="background: transparent; border: none; color: #dc3545; font-size: 28px; line-height: 1; cursor: pointer; padding: 0; width: 30px; height: 30px;">
+                    ×
                 </button>
             </div>
             
-            <div class="mb-3">
-                <p class="text-sm text-gray-600" id="pizzaNameDisplay"></p>
+            <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                <p style="margin: 0; font-size: 14px; color: #495057; font-weight: 500;" id="pizzaNameDisplay"></p>
             </div>
             
-            <div id="ingredientsList" class="space-y-2">
+            <div id="ingredientsList" style="display: flex; flex-direction: column; gap: 10px;">
                 <!-- Ingredients will be loaded here -->
             </div>
             
-            <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
-                <button onclick="closeIngredientsModal()" class="btn btn-secondary btn-sm">
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                <button onclick="closeIngredientsModal()" class="btn btn-secondary">
                     Cerrar
                 </button>
             </div>
@@ -781,322 +643,10 @@
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
 <script>
-// Variables globales
-let payments = [];
-let customerMode = 'search';
-let orderTotal = {{ $order->total_amount }};
+// Variables globales para modal de ingredientes
 let currentPizzaItemId = null;
 let currentPizzaName = '';
 let availableIngredients = [];
-
-// Función JavaScript pura para abrir el modal
-function openPaymentModal() {
-    console.log('Opening payment modal...');
-    document.getElementById('paymentModal').style.display = 'block';
-    resetPaymentModal();
-}
-
-// Resetear el modal
-function resetPaymentModal() {
-    payments = [];
-    customerMode = 'search';
-    updatePaymentSummary();
-    showCustomerSearch();
-    document.getElementById('paymentForm').reset();
-    document.getElementById('processPaymentBtn').disabled = true;
-}
-
-// Actualizar resumen de pagos
-function updatePaymentSummary() {
-    const totalPaid = payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
-    const remaining = orderTotal - totalPaid;
-    
-    document.getElementById('totalPaid').textContent = totalPaid.toFixed(2);
-    document.getElementById('remainingAmount').textContent = remaining.toFixed(2);
-    
-    // Mostrar/ocultar lista de pagos
-    const paymentsList = document.getElementById('paymentsList');
-    if (payments.length > 0) {
-        paymentsList.style.display = 'block';
-        updatePaymentsList();
-    } else {
-        paymentsList.style.display = 'none';
-    }
-    
-    // Habilitar/deshabilitar botón de procesar
-    const processBtn = document.getElementById('processPaymentBtn');
-    if (remaining <= 0.01 && payments.length > 0) {
-        processBtn.disabled = false;
-        processBtn.classList.remove('btn-secondary');
-        processBtn.classList.add('btn-primary');
-    } else {
-        processBtn.disabled = true;
-        processBtn.classList.remove('btn-primary');
-        processBtn.classList.add('btn-secondary');
-    }
-}
-
-// Actualizar lista de pagos
-function updatePaymentsList() {
-    const container = document.getElementById('paymentsContainer');
-    container.innerHTML = '';
-    
-    payments.forEach((payment, index) => {
-        const div = document.createElement('div');
-        div.className = 'flex justify-between items-center bg-gray-100 p-3 rounded';
-        div.innerHTML = `
-            <div>
-                <span class="font-medium">${getPaymentMethodText(payment.method)}</span>
-                ${payment.reference ? `<span class="text-sm text-gray-600 ml-2">(Ref: ${payment.reference})</span>` : ''}
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="font-bold">$${payment.amount.toFixed(2)}</span>
-                <button onclick="removePayment(${index})" class="text-danger hover:text-danger-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-        container.appendChild(div);
-    });
-}
-
-// Obtener texto del método de pago
-function getPaymentMethodText(method) {
-    const methods = {
-        'cash': 'Efectivo',
-        'mobile_payment': 'Pago Móvil',
-        'zelle': 'Zelle',
-        'binance': 'Binance',
-        'pos': 'Punto de Venta',
-        'transfer': 'Transferencia'
-    };
-    return methods[method] || method;
-}
-
-// Agregar pago
-function addPayment() {
-    const method = document.getElementById('paymentMethod').value;
-    const amount = parseFloat(document.getElementById('paymentAmount').value);
-    const reference = document.getElementById('paymentReference').value;
-    
-    if (!method || !amount) {
-        alert('Por favor complete todos los campos');
-        return;
-    }
-    
-    const remaining = orderTotal - payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
-    if (amount > remaining) {
-        alert('El monto no puede ser mayor al restante');
-        return;
-    }
-    
-    payments.push({ method, amount, reference });
-    document.getElementById('paymentForm').reset();
-    updatePaymentSummary();
-}
-
-// Remover pago
-function removePayment(index) {
-    payments.splice(index, 1);
-    updatePaymentSummary();
-}
-
-// Mostrar búsqueda de cliente
-function showCustomerSearch() {
-    document.getElementById('customerSearch').style.display = 'block';
-    document.getElementById('customerForm').style.display = 'none';
-    document.getElementById('searchCustomerBtn').className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white';
-    document.getElementById('newCustomerBtn').className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700';
-    customerMode = 'search';
-    
-    // Limpiar búsqueda anterior
-    document.getElementById('customerSearchInput').value = '';
-    document.getElementById('searchResults').style.display = 'none';
-}
-
-// Mostrar formulario de cliente
-function showCustomerForm() {
-    document.getElementById('customerSearch').style.display = 'none';
-    document.getElementById('customerForm').style.display = 'block';
-    document.getElementById('searchCustomerBtn').className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700';
-    document.getElementById('newCustomerBtn').className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white';
-    customerMode = 'new';
-    
-    // Limpiar resultados de búsqueda
-    document.getElementById('searchResults').style.display = 'none';
-}
-
-// Mostrar/ocultar campo de referencia
-function toggleReferenceField() {
-    const method = document.getElementById('paymentMethod').value;
-    const referenceField = document.getElementById('referenceField');
-    if (['transfer', 'mobile_payment', 'zelle'].includes(method)) {
-        referenceField.style.display = 'block';
-    } else {
-        referenceField.style.display = 'none';
-    }
-}
-
-// Buscar cliente por cédula
-async function searchCustomerByCedula(query) {
-    try {
-        // Mostrar indicador de carga
-        const searchResults = document.getElementById('searchResults');
-        searchResults.innerHTML = `
-            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div class="flex items-center">
-                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    <span class="text-blue-800">Buscando cliente...</span>
-                </div>
-            </div>
-        `;
-        searchResults.style.display = 'block';
-        
-        const response = await fetch(`/api/customers/search?q=${encodeURIComponent(query)}`);
-        const customers = await response.json();
-        
-        // Filtrar por cédula exacta
-        const exactMatch = customers.find(customer => 
-            customer.cedula && customer.cedula.toString() === query.toString()
-        );
-        
-        if (exactMatch) {
-            // Cliente encontrado - autocompletar datos
-            fillCustomerData(exactMatch);
-            searchResults.innerHTML = `
-                <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div class="font-medium text-green-800">✓ Cliente encontrado</div>
-                    <div class="text-sm text-green-600">${exactMatch.name} - Cédula: ${exactMatch.cedula}</div>
-                    <div class="text-xs text-green-500 mt-1">Los datos se han autocompletado</div>
-                </div>
-            `;
-        } else {
-            // No se encontró cliente
-            searchResults.innerHTML = `
-                <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div class="font-medium text-yellow-800">⚠ Cliente no encontrado</div>
-                    <div class="text-sm text-yellow-600">Se creará un nuevo cliente con cédula: ${query}</div>
-                    <button onclick="createNewCustomerWithCedula('${query}')" 
-                            class="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                        <i class="fas fa-plus mr-1"></i> Crear Cliente Nuevo
-                    </button>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error searching customer:', error);
-        searchResults.innerHTML = `
-            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div class="font-medium text-red-800">Error en la búsqueda</div>
-                <div class="text-sm text-red-600">No se pudo conectar con la base de datos</div>
-            </div>
-        `;
-    }
-}
-
-// Autocompletar datos del cliente
-function fillCustomerData(customer) {
-    document.getElementById('customerName').value = customer.name || '';
-    document.getElementById('customerEmail').value = customer.email || '';
-    document.getElementById('customerPhone').value = customer.phone || '';
-    document.getElementById('customerCedula').value = customer.cedula || '';
-    document.getElementById('customerAddress').value = customer.address || '';
-    
-    // Cambiar a modo formulario para mostrar los datos
-    showCustomerForm();
-}
-
-// Crear nuevo cliente con cédula pre-llenada
-function createNewCustomerWithCedula(cedula) {
-    document.getElementById('customerCedula').value = cedula;
-    showCustomerForm();
-    document.getElementById('searchResults').style.display = 'none';
-}
-
-// Procesar pago
-function processPayment() {
-    if (payments.length === 0) {
-        alert('Debe agregar al menos un método de pago');
-        return;
-    }
-    
-    const remaining = orderTotal - payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
-    if (remaining > 0.01) {
-        alert('El monto total no ha sido completado. Restante: $' + remaining.toFixed(2));
-        return;
-    }
-    
-    const customerName = document.getElementById('customerName').value;
-    const customerCedula = document.getElementById('customerCedula').value;
-    
-    if (!customerName || !customerCedula) {
-        alert('Debe completar los datos del cliente');
-        return;
-    }
-    
-    const customerData = {
-        name: customerName,
-        email: document.getElementById('customerEmail').value,
-        phone: document.getElementById('customerPhone').value,
-        cedula: customerCedula,
-        address: document.getElementById('customerAddress').value
-    };
-    
-    // Enviar datos al servidor
-    fetch(`/pos/{{ $order->id }}/payment`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify({
-            payments: payments,
-            customer_data: customerData
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('paymentModal').style.display = 'none';
-            location.reload();
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error al procesar el pago');
-    });
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    // Formulario de pago
-    document.getElementById('paymentForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        addPayment();
-    });
-    
-    // Cambio de método de pago
-    document.getElementById('paymentMethod').addEventListener('change', toggleReferenceField);
-    
-    // Botones de cliente
-    document.getElementById('searchCustomerBtn').addEventListener('click', showCustomerSearch);
-    document.getElementById('newCustomerBtn').addEventListener('click', showCustomerForm);
-    
-    // Botón de procesar pago
-    document.getElementById('processPaymentBtn').addEventListener('click', processPayment);
-    
-    // Búsqueda de cliente
-    document.getElementById('customerSearchInput').addEventListener('input', function() {
-        const query = this.value;
-        if (query.length >= 3) {
-            searchCustomerByCedula(query);
-        } else {
-            document.getElementById('searchResults').style.display = 'none';
-        }
-    });
-});
 
 // Abrir modal de ingredientes
 async function openIngredientsModal(itemId, pizzaName) {
@@ -1105,9 +655,13 @@ async function openIngredientsModal(itemId, pizzaName) {
     
     document.getElementById('pizzaNameDisplay').textContent = `Ingredientes para: ${pizzaName}`;
     
-    // Extraer el tamaño de la pizza del nombre
+    // Determinar el tamaño basado en el nombre del producto
     let size = 'Personal';
-    if (pizzaName.includes('Personal') || pizzaName.includes('25cm')) {
+    
+    // Si es Calzone, usar "Calzone" como tamaño
+    if (pizzaName.toLowerCase().includes('calzone')) {
+        size = 'Calzone';
+    } else if (pizzaName.includes('Personal') || pizzaName.includes('25cm')) {
         size = 'Personal';
     } else if (pizzaName.includes('Mediana') || pizzaName.includes('33cm')) {
         size = 'Mediana';
@@ -1120,7 +674,8 @@ async function openIngredientsModal(itemId, pizzaName) {
         const response = await fetch(`/api/ingredients/by-size/${size}`);
         availableIngredients = await response.json();
         displayIngredients();
-        document.getElementById('ingredientsModal').style.display = 'block';
+        const modal = document.getElementById('ingredientsModal');
+        modal.style.display = 'flex'; // Cambiar a flex para que funcione el centrado
     } catch (error) {
         console.error('Error loading ingredients:', error);
         alert('Error al cargar los ingredientes');
@@ -1133,6 +688,63 @@ function closeIngredientsModal() {
     currentPizzaItemId = null;
     currentPizzaName = '';
     availableIngredients = [];
+}
+
+// Agregar caja a la pizza
+async function addBoxToPizza(itemId, pizzaName) {
+    // Determinar el tamaño de la caja basado en el nombre de la pizza
+    let boxName = 'Caja Personal';
+    
+    if (pizzaName.toLowerCase().includes('personal') || pizzaName.includes('25cm')) {
+        boxName = 'Caja Personal';
+    } else if (pizzaName.toLowerCase().includes('mediana') || pizzaName.includes('33cm')) {
+        boxName = 'Caja Mediana';
+    } else if (pizzaName.toLowerCase().includes('familiar') || pizzaName.includes('40cm')) {
+        boxName = 'Caja Familiar';
+    }
+    
+    // Buscar el producto de la caja
+    try {
+        const response = await fetch('/api/products/search-by-name', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ name: boxName })
+        });
+        
+        const box = await response.json();
+        
+        if (!box || !box.id) {
+            alert('No se encontró la caja correspondiente');
+            return;
+        }
+        
+        // Agregar la caja como ingrediente
+        const addResponse = await fetch(`/pos/{{ $order->id }}/item/${itemId}/add-ingredient`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                product_id: box.id,
+                quantity: 1
+            })
+        });
+        
+        const result = await addResponse.json();
+        
+        if (result.success) {
+            location.reload();
+        } else {
+            alert(result.message || 'Error al agregar la caja');
+        }
+    } catch (error) {
+        console.error('Error adding box:', error);
+        alert('Error al agregar la caja');
+    }
 }
 
 // Mostrar ingredientes en el modal
@@ -1394,12 +1006,21 @@ function orderDetailSystem() {
                 return;
             }
             
-            this.payments.push({...this.currentPayment});
-            this.currentPayment = {
-                method: '',
-                amount: this.remainingAmount,
-                reference: ''
-            };
+            // Agregar el pago al array
+            this.payments.push({
+                method: this.currentPayment.method,
+                amount: parseFloat(this.currentPayment.amount),
+                reference: this.currentPayment.reference
+            });
+            
+            // Resetear el formulario con el nuevo restante
+            this.$nextTick(() => {
+                this.currentPayment = {
+                    method: '',
+                    amount: this.remainingAmount > 0 ? this.remainingAmount : 0,
+                    reference: ''
+                };
+            });
         },
         
         removePayment(index) {
@@ -1554,12 +1175,6 @@ function orderDetailSystem() {
                 console.error('Error checking cedula:', error);
                 this.cedulaExists = false;
             }
-        },
-        
-        get remainingAmount() {
-            const totalPaid = {{ $order->payments->sum('amount') }};
-            const totalAmount = {{ $order->total_amount }};
-            return Math.max(0, totalAmount - totalPaid);
         }
     }
 }

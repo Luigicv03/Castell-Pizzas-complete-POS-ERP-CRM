@@ -158,14 +158,31 @@ class PosController extends Controller
 
             // Crear los items del pedido
             foreach ($request->items as $item) {
-                OrderItem::create([
+                // Crear el item padre
+                $orderItem = OrderItem::create([
                     'order_id' => $order->id,
+                    'parent_id' => null,
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
                     'total_price' => $item['quantity'] * $item['unit_price'],
                     'status' => 'pending',
                 ]);
+                
+                // Si el item tiene children (ingredientes/cajas), crearlos también
+                if (isset($item['children']) && is_array($item['children']) && count($item['children']) > 0) {
+                    foreach ($item['children'] as $child) {
+                        OrderItem::create([
+                            'order_id' => $order->id,
+                            'parent_id' => $orderItem->id, // ← Relacionar con el padre
+                            'product_id' => $child['productId'],
+                            'quantity' => $child['quantity'],
+                            'unit_price' => $child['price'],
+                            'total_price' => $child['quantity'] * $child['price'],
+                            'status' => 'pending',
+                        ]);
+                    }
+                }
             }
 
             // Actualizar estado de la mesa si es dine_in
@@ -215,7 +232,14 @@ class PosController extends Controller
             }, 
             'payments'
         ]);
-        $categories = \App\Models\Category::where('is_active', true)->get();
+        
+        // Solo cargar categorías que tienen productos activos
+        $categories = \App\Models\Category::where('is_active', true)
+            ->whereHas('products', function($query) {
+                $query->where('is_active', true);
+            })
+            ->get();
+        
         $products = \App\Models\Product::where('is_active', true)->with('category')->get();
         
         return view('pos.order-detail', compact('order', 'categories', 'products'));
@@ -771,25 +795,54 @@ class PosController extends Controller
                 '33cm' => 'Mediana',
                 'familiar' => 'Familiar',
                 '40cm' => 'Familiar',
+                'calzone' => 'Calzone',
             ];
             
             $normalizedSize = $sizeMap[strtolower($size)] ?? $size;
             
+            Log::info("Buscando ingredientes para tamaño: {$normalizedSize}");
+            
             // Obtener ingredientes que contienen el tamaño en su nombre
-            $ingredients = Product::whereIn('category_id', function($query) {
-                $query->select('id')
-                      ->from('categories')
-                      ->whereIn('name', ['Ingredientes', 'Ingredientes Premium']);
-            })
-            ->where('is_active', true)
-            ->where('name', 'like', "%{$normalizedSize}%")
-            ->orderBy('category_id')
-            ->orderBy('sort_order')
-            ->get();
+            $ingredients = Product::with('category') // ← AGREGAR RELACIÓN
+                ->whereIn('category_id', function($query) {
+                    $query->select('id')
+                          ->from('categories')
+                          ->whereIn('name', ['Ingredientes', 'Ingredientes Premium']);
+                })
+                ->where('is_active', true)
+                ->where('name', 'like', "%{$normalizedSize}%")
+                ->orderBy('category_id')
+                ->orderBy('sort_order')
+                ->get();
+            
+            Log::info("Ingredientes encontrados: " . $ingredients->count());
             
             return response()->json($ingredients);
         } catch (\Exception $e) {
             Log::error('Error getting ingredients by size: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Buscar producto por nombre exacto
+     */
+    public function searchProductByName(Request $request)
+    {
+        try {
+            $name = $request->input('name');
+            
+            $product = Product::where('name', $name)
+                ->where('is_active', true)
+                ->first();
+            
+            if (!$product) {
+                return response()->json(['error' => 'Producto no encontrado'], 404);
+            }
+            
+            return response()->json($product);
+        } catch (\Exception $e) {
+            Log::error('Error searching product by name: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

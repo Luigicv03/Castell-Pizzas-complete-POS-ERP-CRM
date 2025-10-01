@@ -175,4 +175,5 @@ Route::prefix('api')->group(function () {
     Route::get('/delivery/costs', [App\Http\Controllers\PosController::class, 'getDeliveryCosts'])->name('api.delivery.costs');
     Route::get('/delivery/calculate', [App\Http\Controllers\PosController::class, 'calculateDeliveryCost'])->name('api.delivery.calculate');
     Route::get('/ingredients/by-size/{size}', [App\Http\Controllers\PosController::class, 'getIngredientsBySize'])->name('api.ingredients.by-size');
+    Route::post('/products/search-by-name', [App\Http\Controllers\PosController::class, 'searchProductByName'])->name('api.products.search-by-name');
 });
