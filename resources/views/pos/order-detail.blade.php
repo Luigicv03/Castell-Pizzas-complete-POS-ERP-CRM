@@ -148,9 +148,9 @@
                 <h5 class="mb-0 fw-bold">Pedido #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h5>
                 <small class="text-muted">
                     @if($order->table)
-                        Mesa {{ $order->table->name }} • {{ $order->customer ? $order->customer->name : 'Cliente General' }}
+                        Mesa {{ $order->table->name }} • {{ $order->customer ? $order->customer->name : ($order->customer_name ?: 'Cliente General') }}
                     @else
-                        {{ $order->getTypeText() }} • {{ $order->customer ? $order->customer->name : 'Cliente General' }}
+                        {{ $order->getTypeText() }} • {{ $order->customer ? $order->customer->name : ($order->customer_name ?: 'Cliente General') }}
                     @endif
                 </small>
             </div>
@@ -216,6 +216,9 @@
                                 $productName = strtolower($item->product->name ?? '');
                                 $showIngredientsBtn = (str_contains($categoryName, 'pizza') || str_contains($categoryName, 'calzone') || str_contains($productName, 'calzone')) 
                                                       && !str_contains($productName, 'caja');
+                                $showTeaContainerBtn = (str_contains($categoryName, 'té') || str_contains($categoryName, 'te naturales'))
+                                                      && !str_contains($productName, 'envase');
+                                $showCoffeeContainerBtn = str_contains($categoryName, 'café') && !str_contains($productName, 'envase');
                             @endphp
                             @if($showIngredientsBtn)
                             <button onclick="openIngredientsModal({{ $item->id }}, '{{ $item->product->name }}')" 
@@ -229,6 +232,24 @@
                                     style="background: #795548; border: 1px solid #795548; color: white; border-radius: 50%; width: 28px; height: 28px; margin-left: 5px;"
                                     title="Agregar caja">
                                 📦
+                            </button>
+                            @endif
+                            
+                            @if($showTeaContainerBtn)
+                            <button onclick="addContainerToTea({{ $item->id }}, '{{ $item->product->name }}')" 
+                                    class="btn btn-mini"
+                                    style="background: #4CAF50; border: 1px solid #4CAF50; color: white; border-radius: 50%; width: 28px; height: 28px; margin-left: 5px;"
+                                    title="Agregar envase para té">
+                                🥤
+                            </button>
+                            @endif
+                            
+                            @if($showCoffeeContainerBtn)
+                            <button onclick="addContainerToCoffee({{ $item->id }}, '{{ $item->product->name }}')" 
+                                    class="btn btn-mini"
+                                    style="background: #6F4E37; border: 1px solid #6F4E37; color: white; border-radius: 50%; width: 28px; height: 28px; margin-left: 5px;"
+                                    title="Agregar envase para café">
+                                ☕
                             </button>
                             @endif
                         </div>
@@ -277,7 +298,10 @@
         <div class="mb-3">
             <label class="form-label small fw-bold">Cliente</label>
             <div class="bg-light p-2 rounded">
-                {{ $order->customer ? $order->customer->name : 'Cliente general' }}
+                {{ $order->customer ? $order->customer->name : ($order->customer_name ?: 'Cliente general') }}
+                @if(!$order->customer && $order->customer_name)
+                    <small class="text-muted d-block">(Temporal - asociar al pagar)</small>
+                @endif
             </div>
         </div>
 
@@ -747,6 +771,102 @@ async function addBoxToPizza(itemId, pizzaName) {
     }
 }
 
+// Agregar envase para té
+async function addContainerToTea(itemId, teaName) {
+    const containerName = 'Envase para Té';
+    
+    // Buscar el producto del envase
+    try {
+        const response = await fetch('/api/products/search-by-name', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ name: containerName })
+        });
+        
+        const container = await response.json();
+        
+        if (!container || !container.id) {
+            alert('No se encontró el envase para té');
+            return;
+        }
+        
+        // Agregar el envase como ingrediente adicional
+        const addResponse = await fetch(`/pos/{{ $order->id }}/item/${itemId}/add-ingredient`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                product_id: container.id,
+                quantity: 1
+            })
+        });
+        
+        const result = await addResponse.json();
+        
+        if (result.success) {
+            location.reload();
+        } else {
+            alert(result.message || 'Error al agregar el envase');
+        }
+    } catch (error) {
+        console.error('Error adding container:', error);
+        alert('Error al agregar el envase');
+    }
+}
+
+// Agregar envase para café
+async function addContainerToCoffee(itemId, coffeeName) {
+    const containerName = 'Envase para Café';
+    
+    // Buscar el producto del envase
+    try {
+        const response = await fetch('/api/products/search-by-name', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ name: containerName })
+        });
+        
+        const container = await response.json();
+        
+        if (!container || !container.id) {
+            alert('No se encontró el envase para café');
+            return;
+        }
+        
+        // Agregar el envase como ingrediente adicional
+        const addResponse = await fetch(`/pos/{{ $order->id }}/item/${itemId}/add-ingredient`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                product_id: container.id,
+                quantity: 1
+            })
+        });
+        
+        const result = await addResponse.json();
+        
+        if (result.success) {
+            location.reload();
+        } else {
+            alert(result.message || 'Error al agregar el envase');
+        }
+    } catch (error) {
+        console.error('Error adding container:', error);
+        alert('Error al agregar el envase');
+    }
+}
+
 // Mostrar ingredientes en el modal
 function displayIngredients() {
     const container = document.getElementById('ingredientsList');
@@ -757,9 +877,12 @@ function displayIngredients() {
         return;
     }
     
+    // Filtrar solo ingredientes simples (sin "Doble" en el nombre)
+    const simpleIngredients = availableIngredients.filter(ing => !ing.name.includes('Doble'));
+    
     // Agrupar por categoría
     const grouped = {};
-    availableIngredients.forEach(ingredient => {
+    simpleIngredients.forEach(ingredient => {
         const categoryName = ingredient.category?.name || 'Otros';
         if (!grouped[categoryName]) {
             grouped[categoryName] = [];
@@ -774,21 +897,34 @@ function displayIngredients() {
         categoryDiv.innerHTML = `<h6 class="fw-bold text-muted mb-2" style="font-size: 12px;">${categoryName}</h6>`;
         
         grouped[categoryName].forEach(ingredient => {
+            // Buscar la versión doble del ingrediente
+            const doubleVersion = availableIngredients.find(ing => 
+                ing.name === ingredient.name.replace(/\s+(Personal|Mediana|Familiar|Calzone)/, ' $1 Doble')
+            );
+            
             const ingredientDiv = document.createElement('div');
             ingredientDiv.className = 'd-flex justify-content-between align-items-center p-2 border rounded mb-2';
-            ingredientDiv.style.cursor = 'pointer';
             ingredientDiv.style.transition = 'all 0.2s';
             ingredientDiv.innerHTML = `
-                <div>
+                <div style="flex: 1;">
                     <div class="fw-bold" style="font-size: 13px;">${ingredient.name}</div>
-                    <div class="text-muted" style="font-size: 11px;">${ingredient.description || ''}</div>
+                    <div class="text-muted" style="font-size: 11px;">Simple: $${parseFloat(ingredient.price).toFixed(2)}${doubleVersion ? ` | Doble: $${parseFloat(doubleVersion.price).toFixed(2)}` : ''}</div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <span class="fw-bold text-success">$${parseFloat(ingredient.price).toFixed(2)}</span>
-                    <button onclick="addIngredientToPizza(${ingredient.id})" 
-                            class="btn btn-sm btn-primary">
+                    <button onclick="addIngredientToPizza(${ingredient.id}, false)" 
+                            class="btn btn-sm btn-success" 
+                            style="min-width: 45px; font-weight: bold;"
+                            title="Agregar porción simple">
                         +
                     </button>
+                    ${doubleVersion ? `
+                    <button onclick="addIngredientToPizza(${doubleVersion.id}, true)" 
+                            class="btn btn-sm btn-primary" 
+                            style="min-width: 45px; font-weight: bold;"
+                            title="Agregar porción doble">
+                        ++
+                    </button>
+                    ` : ''}
                 </div>
             `;
             categoryDiv.appendChild(ingredientDiv);

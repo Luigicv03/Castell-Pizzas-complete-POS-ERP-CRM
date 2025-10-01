@@ -20,7 +20,7 @@
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <!-- Ventas del Día -->
         <div class="stats-card">
             <div class="p-6">
@@ -36,11 +36,37 @@
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Ventas del Día</dt>
                             <dd class="text-2xl font-bold text-gray-900">${{ number_format($stats['daily_sales'], 2) }}</dd>
-                            <dd class="text-xs text-success-600 flex items-center mt-1">
+                            <dd class="text-xs text-gray-500 mt-1">
+                                Ingresos totales
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ganancias del Día -->
+        <div class="stats-card cursor-pointer hover:shadow-lg transition-shadow" onclick="openProfitModal()">
+            <div class="p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="stats-card-icon" style="background-color: #10b981; color: white;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Ganancia del Día</dt>
+                            <dd class="text-2xl font-bold {{ $stats['daily_profit'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                ${{ number_format($stats['daily_profit'], 2) }}
+                            </dd>
+                            <dd class="text-xs flex items-center mt-1 {{ $stats['profit_margin'] >= 50 ? 'text-green-600' : ($stats['profit_margin'] >= 30 ? 'text-yellow-600' : 'text-red-600') }}">
                                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                 </svg>
-                                +12% vs ayer
+                                {{ number_format($stats['profit_margin'], 1) }}% margen
                             </dd>
                         </dl>
                     </div>
@@ -314,4 +340,181 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Desglose de Ganancias -->
+<div id="profitModal" style="display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 50; display: flex; align-items: center; justify-content: center;">
+    <div style="background-color: white; border-radius: 12px; max-width: 1200px; width: 90%; max-height: 90vh; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 24px; color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 8px;">📊 Análisis de Ganancias</h2>
+                    <p style="font-size: 14px; opacity: 0.9;">Desglose detallado de cada ticket del día</p>
+                </div>
+                <button onclick="closeProfitModal()" style="background: rgba(255, 255, 255, 0.2); border: none; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;">
+                    <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Resumen General -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px;">
+                <div style="background: rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Ventas Totales</div>
+                    <div style="font-size: 24px; font-weight: bold;">${{ number_format($stats['daily_sales'], 2) }}</div>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Costos Totales</div>
+                    <div style="font-size: 24px; font-weight: bold;">${{ number_format($stats['daily_cost'], 2) }}</div>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Ganancia Neta</div>
+                    <div style="font-size: 24px; font-weight: bold;">${{ number_format($stats['daily_profit'], 2) }}</div>
+                    <div style="font-size: 12px; margin-top: 4px;">{{ number_format($stats['profit_margin'], 1) }}% margen</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Body -->
+        <div style="padding: 24px; overflow-y: auto; max-height: calc(90vh - 250px);">
+            @if($profitOrders->count() > 0)
+                <div style="display: grid; gap: 16px;">
+                    @foreach($profitOrders as $order)
+                    <div style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; transition: all 0.2s; cursor: pointer;" onmouseover="this.style.boxShadow='0 4px 6px -1px rgba(0, 0, 0, 0.1)'" onmouseout="this.style.boxShadow='none'" onclick="toggleOrderDetails({{ $order->id }})">
+                        <!-- Cabecera del Ticket -->
+                        <div style="background: #f9fafb; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 16px;">
+                                <div style="background: #3b82f6; color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">
+                                    #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600; font-size: 16px; color: #111827;">
+                                        Pedido #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}
+                                        @if($order->table)
+                                            - Mesa {{ $order->table->name }}
+                                        @endif
+                                    </div>
+                                    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+                                        {{ $order->created_at->format('d/m/Y H:i') }}
+                                        @if($order->customer)
+                                            • {{ $order->customer->name }}
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: right;">
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: center;">
+                                    <div>
+                                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">Venta</div>
+                                        <div style="font-weight: 700; font-size: 16px; color: #111827;">${{ number_format($order->total_amount, 2) }}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">Costo</div>
+                                        <div style="font-weight: 700; font-size: 16px; color: #ef4444;">${{ number_format($order->total_cost, 2) }}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">Ganancia</div>
+                                        <div style="font-weight: 700; font-size: 16px; color: {{ $order->profit >= 0 ? '#10b981' : '#ef4444' }};">
+                                            ${{ number_format($order->profit, 2) }}
+                                        </div>
+                                        <div style="font-size: 10px; color: {{ $order->profit_margin >= 50 ? '#10b981' : ($order->profit_margin >= 30 ? '#f59e0b' : '#ef4444') }}; margin-top: 2px;">
+                                            {{ number_format($order->profit_margin, 1) }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Detalle de Items (colapsable) -->
+                        <div id="order-details-{{ $order->id }}" style="display: none; padding: 16px; background: white;">
+                            <div style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 12px;">Productos del pedido:</div>
+                            <table style="width: 100%; font-size: 12px;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                                        <th style="text-align: left; padding: 8px; color: #6b7280; font-weight: 600;">Producto</th>
+                                        <th style="text-align: center; padding: 8px; color: #6b7280; font-weight: 600;">Cant.</th>
+                                        <th style="text-align: right; padding: 8px; color: #6b7280; font-weight: 600;">P. Unit.</th>
+                                        <th style="text-align: right; padding: 8px; color: #6b7280; font-weight: 600;">Costo Unit.</th>
+                                        <th style="text-align: right; padding: 8px; color: #6b7280; font-weight: 600;">Subtotal</th>
+                                        <th style="text-align: right; padding: 8px; color: #6b7280; font-weight: 600;">Ganancia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($order->items->whereNull('parent_id') as $item)
+                                    <tr style="border-bottom: 1px solid #f3f4f6;">
+                                        <td style="padding: 12px 8px; font-weight: 500;">
+                                            {{ $item->product->name ?? 'Producto eliminado' }}
+                                            @if($item->children->count() > 0)
+                                                <div style="margin-top: 4px; font-size: 11px; color: #6b7280;">
+                                                    @foreach($item->children as $child)
+                                                        <div style="margin-left: 16px;">+ {{ $child->product->name ?? 'N/A' }}</div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td style="padding: 12px 8px; text-align: center;">{{ $item->quantity }}</td>
+                                        <td style="padding: 12px 8px; text-align: right;">${{ number_format($item->unit_price, 2) }}</td>
+                                        <td style="padding: 12px 8px; text-align: right; color: #ef4444;">${{ number_format($item->product->cost ?? 0, 2) }}</td>
+                                        <td style="padding: 12px 8px; text-align: right; font-weight: 600;">
+                                            ${{ number_format($item->total_price + $item->children->sum('total_price'), 2) }}
+                                        </td>
+                                        <td style="padding: 12px 8px; text-align: right; font-weight: 600; color: #10b981;">
+                                            @php
+                                                $itemRevenue = $item->total_price + $item->children->sum('total_price');
+                                                $itemCost = ($item->product->cost ?? 0) * $item->quantity;
+                                                foreach ($item->children as $child) {
+                                                    $itemCost += ($child->product->cost ?? 0) * $child->quantity;
+                                                }
+                                                $itemProfit = $itemRevenue - $itemCost;
+                                            @endphp
+                                            ${{ number_format($itemProfit, 2) }}
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            @else
+                <div style="text-align: center; padding: 48px; color: #6b7280;">
+                    <svg style="width: 64px; height: 64px; margin: 0 auto 16px; color: #d1d5db;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <h4 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 8px;">No hay ventas hoy</h4>
+                    <p style="color: #6b7280;">Los tickets del día aparecerán aquí con su análisis de ganancia</p>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+
+<script>
+function openProfitModal() {
+    document.getElementById('profitModal').style.display = 'flex';
+}
+
+function closeProfitModal() {
+    document.getElementById('profitModal').style.display = 'none';
+}
+
+function toggleOrderDetails(orderId) {
+    const detailsEl = document.getElementById('order-details-' + orderId);
+    if (detailsEl.style.display === 'none') {
+        detailsEl.style.display = 'block';
+    } else {
+        detailsEl.style.display = 'none';
+    }
+}
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('profitModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeProfitModal();
+    }
+});
+</script>
 @endsection

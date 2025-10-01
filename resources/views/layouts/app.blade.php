@@ -70,6 +70,7 @@
             <!-- Navigation -->
             <nav class="mt-6 px-3">
                 <div class="space-y-1">
+                    @can('dashboard.view')
                     <!-- Dashboard -->
                                <a href="{{ route('dashboard') }}" 
                                   class="sidebar-link {{ request()->routeIs('dashboard') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
@@ -79,6 +80,7 @@
                                    </svg>
                                    Dashboard
                                </a>
+                    @endcan
 
                     @can('pos.view')
                     <!-- POS -->
@@ -160,6 +162,20 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857M17 20v-9a2 2 0 00-2-2H7a2 2 0 00-2 2v9m4-11h2m-2 11h2m-1-9v8m-1-8v4m-1-4h4m-1-4v4m-1-4h4"></path>
                         </svg>
                         CRM
+                    </a>
+                    @endcan
+
+                    <!-- Divider -->
+                    <div class="border-t border-gray-200 my-3"></div>
+
+                    @can('users.view')
+                    <!-- Gestión de Usuarios -->
+                    <a href="{{ route('users.index') }}" 
+                       class="sidebar-link {{ request()->routeIs('users.*') ? 'sidebar-link-active' : 'sidebar-link-inactive' }}">
+                                   <svg class="sidebar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        Gestión de Usuarios
                     </a>
                     @endcan
                 </div>
@@ -334,7 +350,6 @@
                         </div>
                         <div class="flex items-center space-x-4">
                             <a href="{{ route('login') }}" class="text-gray-700 hover:text-primary-600 font-medium transition-colors duration-200">Iniciar Sesión</a>
-                            <a href="{{ route('register') }}" class="btn-primary">Registrarse</a>
                         </div>
                     </div>
                 </div>

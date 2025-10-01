@@ -25,17 +25,17 @@ class InitialDataSeeder extends Seeder
             'phone' => '+584121234567',
             'is_active' => true,
         ]);
-        $superAdmin->assignRole('super_admin');
+        $superAdmin->assignRole('Super Admin');
 
         // Crear usuario administrador
         $admin = User::create([
-            'name' => 'Administrador',
+            'name' => 'Administrador General',
             'email' => 'manager@pizzeria.com',
             'password' => Hash::make('password'),
             'phone' => '+584121234568',
             'is_active' => true,
         ]);
-        $admin->assignRole('admin');
+        $admin->assignRole('Admin');
 
         // Crear usuario cajero
         $cashier = User::create([
@@ -45,7 +45,7 @@ class InitialDataSeeder extends Seeder
             'phone' => '+584121234569',
             'is_active' => true,
         ]);
-        $cashier->assignRole('cashier');
+        $cashier->assignRole('Cashier');
 
         // Crear usuario mesero
         $waiter = User::create([
@@ -55,7 +55,7 @@ class InitialDataSeeder extends Seeder
             'phone' => '+584121234570',
             'is_active' => true,
         ]);
-        $waiter->assignRole('waiter');
+        $waiter->assignRole('Waiter');
 
         // Crear categorías de productos
         $categories = [

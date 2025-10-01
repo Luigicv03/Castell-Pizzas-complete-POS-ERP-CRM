@@ -346,6 +346,30 @@
                                                 </button>
                                             </div>
                                         </template>
+                                        
+                                        <!-- Botón de Envase (solo para tés) -->
+                                        <template x-if="isTea(item) && !item.name.toLowerCase().includes('envase')">
+                                            <div class="flex items-center space-x-1 ml-2">
+                                                <button @click="addContainerToCartItem(index, item.name, 'Envase para Té')" 
+                                                        class="w-6 h-6 rounded-full flex items-center justify-center text-sm"
+                                                        style="background: #4CAF50; border: 1px solid #4CAF50; color: white;"
+                                                        title="Agregar envase para té">
+                                                    🥤
+                                                </button>
+                                            </div>
+                                        </template>
+                                        
+                                        <!-- Botón de Envase (solo para café) -->
+                                        <template x-if="isCoffee(item) && !item.name.toLowerCase().includes('envase')">
+                                            <div class="flex items-center space-x-1 ml-2">
+                                                <button @click="addContainerToCartItem(index, item.name, 'Envase para Café')" 
+                                                        class="w-6 h-6 rounded-full flex items-center justify-center text-sm"
+                                                        style="background: #6F4E37; border: 1px solid #6F4E37; color: white;"
+                                                        title="Agregar envase para café">
+                                                    ☕
+                                                </button>
+                                            </div>
+                                        </template>
                                     </div>
                                     <span class="font-bold text-primary-600 text-sm" x-text="'$' + getItemTotal(item).toFixed(2)"></span>
                                 </div>
@@ -650,6 +674,23 @@ function posSystem() {
         isPizzaOrCalzone(item) {
             const name = item.name.toLowerCase();
             return (name.includes('pizza') || name.includes('calzone')) && !name.includes('caja');
+        },
+        
+        // Verificar si un item es té
+        isTea(item) {
+            const name = item.name.toLowerCase();
+            return (name.includes('té') || name.includes('te ') || name.includes('matcha') || name.includes('jamaica')) && !name.includes('envase');
+        },
+        
+        // Verificar si un item es café
+        isCoffee(item) {
+            const name = item.name.toLowerCase();
+            // Lista de nombres de cafés para detectar
+            const coffeeNames = ['árabe', 'americano', 'cappuccino', 'espresso', 'latte', 'macchiato', 
+                               'doppio', 'irlandés', 'caravel', 'viena', 'breve', 'lungo', 'affogato',
+                               'bombón', 'caribeño', 'amaretto', 'ristretto', 'hawaiano', 'cubano', 
+                               'panna', 'vainilla', 'pistacho', 'café'];
+            return coffeeNames.some(coffee => name.includes(coffee)) && !name.includes('envase');
         },
         
         // Remover un child (ingrediente/caja)
@@ -1162,9 +1203,12 @@ function displayIngredientsPOS() {
         return;
     }
     
+    // Filtrar solo ingredientes simples (sin "Doble" en el nombre)
+    const simpleIngredients = availableIngredientsPOS.filter(ing => !ing.name.includes('Doble'));
+    
     // Agrupar por categoría
     const grouped = {};
-    availableIngredientsPOS.forEach(ing => {
+    simpleIngredients.forEach(ing => {
         const catName = ing.category ? ing.category.name : 'Sin categoría';
         if (!grouped[catName]) {
             grouped[catName] = [];
@@ -1186,28 +1230,69 @@ function displayIngredientsPOS() {
         categoryDiv.appendChild(categoryTitle);
         
         grouped[categoryName].forEach(ingredient => {
-            const ingredientBtn = document.createElement('button');
-            ingredientBtn.className = 'btn btn-outline-primary btn-sm';
-            ingredientBtn.style.width = '100%';
-            ingredientBtn.style.textAlign = 'left';
-            ingredientBtn.style.display = 'flex';
-            ingredientBtn.style.justifyContent = 'space-between';
-            ingredientBtn.style.alignItems = 'center';
-            ingredientBtn.style.marginBottom = '5px';
+            // Buscar la versión doble del ingrediente
+            const doubleVersion = availableIngredientsPOS.find(ing => 
+                ing.name === ingredient.name.replace(/\s+(Personal|Mediana|Familiar|Calzone)/, ' $1 Doble')
+            );
             
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = ingredient.name;
+            const ingredientRow = document.createElement('div');
+            ingredientRow.style.display = 'flex';
+            ingredientRow.style.justifyContent = 'space-between';
+            ingredientRow.style.alignItems = 'center';
+            ingredientRow.style.padding = '8px';
+            ingredientRow.style.border = '1px solid #dee2e6';
+            ingredientRow.style.borderRadius = '6px';
+            ingredientRow.style.marginBottom = '8px';
+            ingredientRow.style.backgroundColor = '#fff';
             
-            const priceSpan = document.createElement('span');
-            priceSpan.style.fontWeight = 'bold';
-            priceSpan.textContent = `$${parseFloat(ingredient.price).toFixed(2)}`;
+            // Columna izquierda: nombre y precios
+            const infoDiv = document.createElement('div');
+            infoDiv.style.flex = '1';
             
-            ingredientBtn.appendChild(nameSpan);
-            ingredientBtn.appendChild(priceSpan);
+            const nameDiv = document.createElement('div');
+            nameDiv.textContent = ingredient.name;
+            nameDiv.style.fontWeight = 'bold';
+            nameDiv.style.fontSize = '13px';
+            nameDiv.style.marginBottom = '3px';
             
-            ingredientBtn.onclick = () => addIngredientToCartItem(ingredient.id, ingredient.name, parseFloat(ingredient.price));
+            const priceDiv = document.createElement('div');
+            priceDiv.style.fontSize = '11px';
+            priceDiv.style.color = '#6c757d';
+            priceDiv.textContent = `Simple: $${parseFloat(ingredient.price).toFixed(2)}${doubleVersion ? ` | Doble: $${parseFloat(doubleVersion.price).toFixed(2)}` : ''}`;
             
-            categoryDiv.appendChild(ingredientBtn);
+            infoDiv.appendChild(nameDiv);
+            infoDiv.appendChild(priceDiv);
+            
+            // Columna derecha: botones
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.style.display = 'flex';
+            buttonsDiv.style.gap = '8px';
+            
+            // Botón Simple (+)
+            const simpleBtn = document.createElement('button');
+            simpleBtn.className = 'btn btn-success btn-sm';
+            simpleBtn.textContent = '+';
+            simpleBtn.style.minWidth = '45px';
+            simpleBtn.style.fontWeight = 'bold';
+            simpleBtn.title = 'Agregar porción simple';
+            simpleBtn.onclick = () => addIngredientToCartItem(ingredient.id, ingredient.name, parseFloat(ingredient.price));
+            buttonsDiv.appendChild(simpleBtn);
+            
+            // Botón Doble (++) - solo si existe
+            if (doubleVersion) {
+                const doubleBtn = document.createElement('button');
+                doubleBtn.className = 'btn btn-primary btn-sm';
+                doubleBtn.textContent = '++';
+                doubleBtn.style.minWidth = '45px';
+                doubleBtn.style.fontWeight = 'bold';
+                doubleBtn.title = 'Agregar porción doble';
+                doubleBtn.onclick = () => addIngredientToCartItem(doubleVersion.id, doubleVersion.name, parseFloat(doubleVersion.price));
+                buttonsDiv.appendChild(doubleBtn);
+            }
+            
+            ingredientRow.appendChild(infoDiv);
+            ingredientRow.appendChild(buttonsDiv);
+            categoryDiv.appendChild(ingredientRow);
         });
         
         container.appendChild(categoryDiv);
@@ -1278,6 +1363,48 @@ async function addBoxToCartItem(cartIndex, pizzaName) {
     } catch (error) {
         console.error('Error fetching box:', error);
         alert('Error al agregar la caja: ' + error.message);
+    }
+}
+
+// Agregar envase al item del carrito (genérico para tés y cafés)
+async function addContainerToCartItem(cartIndex, itemName, containerName = 'Envase para Té') {
+    console.log('Global: Adding container to cart index', cartIndex, 'Item:', itemName, 'Container:', containerName);
+    
+    try {
+        // Buscar el producto del envase
+        const response = await fetch('/api/products/search-by-name', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ name: containerName })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const container = await response.json();
+        
+        if (!container || !container.id) {
+            alert('No se encontró el envase: ' + containerName);
+            return;
+        }
+        
+        // Disparar evento para que Alpine lo maneje
+        window.dispatchEvent(new CustomEvent('add-box-to-cart', {
+            detail: {
+                cartIndex: cartIndex,
+                boxId: container.id,
+                boxName: container.name,
+                boxPrice: parseFloat(container.price)
+            }
+        }));
+        
+    } catch (error) {
+        console.error('Error fetching container:', error);
+        alert('Error al agregar el envase: ' + error.message);
     }
 }
 

@@ -111,72 +111,73 @@ class RolePermissionSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
-        // Crear roles
-        $superAdmin = Role::create(['name' => 'super_admin']);
-        $admin = Role::create(['name' => 'admin']);
-        $manager = Role::create(['name' => 'manager']);
-        $cashier = Role::create(['name' => 'cashier']);
-        $waiter = Role::create(['name' => 'waiter']);
+        // Crear roles (usar firstOrCreate para evitar duplicados)
+        $superAdmin = Role::firstOrCreate(['name' => 'Super Admin']);
+        $admin = Role::firstOrCreate(['name' => 'Admin']);
+        $manager = Role::firstOrCreate(['name' => 'Manager']);
+        $cashier = Role::firstOrCreate(['name' => 'Cashier']);
+        $waiter = Role::firstOrCreate(['name' => 'Waiter']);
+
+        // Limpiar permisos anteriores
+        $superAdmin->syncPermissions([]);
+        $admin->syncPermissions([]);
+        $manager->syncPermissions([]);
+        $cashier->syncPermissions([]);
+        $waiter->syncPermissions([]);
 
         // Asignar permisos a roles
+        
+        // Super Admin: Acceso total a todo
         $superAdmin->givePermissionTo(Permission::all());
 
-        $admin->givePermissionTo([
-            'pos.view', 'pos.create', 'pos.edit',
-            'tables.view', 'tables.create', 'tables.edit',
-            'products.view', 'products.create', 'products.edit',
-            'categories.view', 'categories.create', 'categories.edit',
-            'orders.view', 'orders.create', 'orders.edit', 'orders.cancel',
-            'payments.view', 'payments.create', 'payments.edit',
-            'customers.view', 'customers.create', 'customers.edit',
-            'inventory.view', 'inventory.create', 'inventory.edit',
-            'ingredients.view', 'ingredients.create', 'ingredients.edit',
-            'suppliers.view', 'suppliers.create', 'suppliers.edit',
-            'recipes.view', 'recipes.create', 'recipes.edit',
-            'reports.view', 'reports.sales', 'reports.inventory',
-            'users.view', 'users.create', 'users.edit',
-            'dashboard.view',
-        ]);
+        // Admin: Acceso total a todo
+        $admin->givePermissionTo(Permission::all());
 
+        // Manager (Gerente): POS, Mesas, Productos, Clientes e Inventario
         $manager->givePermissionTo([
-            'pos.view', 'pos.create', 'pos.edit',
-            'tables.view', 'tables.create', 'tables.edit',
-            'products.view', 'products.create', 'products.edit',
-            'categories.view', 'categories.create', 'categories.edit',
-            'orders.view', 'orders.create', 'orders.edit', 'orders.cancel',
-            'payments.view', 'payments.create', 'payments.edit',
-            'customers.view', 'customers.create', 'customers.edit',
-            'inventory.view', 'inventory.create', 'inventory.edit',
-            'ingredients.view', 'ingredients.create', 'ingredients.edit',
-            'suppliers.view', 'suppliers.create', 'suppliers.edit',
-            'recipes.view', 'recipes.create', 'recipes.edit',
-            'reports.view', 'reports.sales', 'reports.inventory', 'reports.financial',
-            'dashboard.view',
+            // POS
+            'pos.view', 'pos.create', 'pos.edit', 'pos.delete',
+            // Mesas
+            'tables.view', 'tables.create', 'tables.edit', 'tables.delete',
+            // Productos
+            'products.view', 'products.create', 'products.edit', 'products.delete',
+            'categories.view', 'categories.create', 'categories.edit', 'categories.delete',
+            // Órdenes
+            'orders.view', 'orders.create', 'orders.edit', 'orders.cancel', 'orders.delete',
+            // Pagos
+            'payments.view', 'payments.create', 'payments.edit', 'payments.delete',
+            // Clientes
+            'customers.view', 'customers.create', 'customers.edit', 'customers.delete',
+            // Inventario completo
+            'inventory.view', 'inventory.create', 'inventory.edit', 'inventory.delete',
+            'ingredients.view', 'ingredients.create', 'ingredients.edit', 'ingredients.delete',
+            'suppliers.view', 'suppliers.create', 'suppliers.edit', 'suppliers.delete',
+            'recipes.view', 'recipes.create', 'recipes.edit', 'recipes.delete',
         ]);
 
+        // Cashier (Cajero): Solo POS y Mesas (sin acceso a Dashboard, Clientes, Productos)
         $cashier->givePermissionTo([
+            // POS
             'pos.view', 'pos.create', 'pos.edit',
-            'tables.view',
-            'products.view',
-            'categories.view',
+            // Mesas
+            'tables.view', 'tables.create', 'tables.edit',
+            // Órdenes
             'orders.view', 'orders.create', 'orders.edit',
+            // Pagos
             'payments.view', 'payments.create', 'payments.edit',
-            'customers.view', 'customers.create', 'customers.edit',
-            'reports.view', 'reports.sales',
-            'dashboard.view',
         ]);
 
+        // Waiter (Mesero): Solo POS y Mesas
         $waiter->givePermissionTo([
+            // POS
             'pos.view', 'pos.create', 'pos.edit',
-            'tables.view',
-            'products.view',
-            'categories.view',
+            // Mesas
+            'tables.view', 'tables.create', 'tables.edit',
+            // Órdenes
             'orders.view', 'orders.create', 'orders.edit',
-            'customers.view', 'customers.create', 'customers.edit',
-            'dashboard.view',
         ]);
     }
 }

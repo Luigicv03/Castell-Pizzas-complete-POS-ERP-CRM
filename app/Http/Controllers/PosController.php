@@ -124,25 +124,16 @@ class PosController extends Controller
         DB::beginTransaction();
         
         try {
-            // Crear cliente si se proporciona nombre
-            $customerId = $request->customer_id;
-            if (!$customerId && $request->customer_name) {
-                $customer = Customer::create([
-                    'name' => $request->customer_name,
-                    'email' => null,
-                    'phone' => null,
-                    'address' => null,
-                    'is_active' => true,
-                ]);
-                $customerId = $customer->id;
-            }
-
+            // NO crear cliente automáticamente, solo guardar el nombre temporal
+            // El cliente se creará/asociará al momento del pago
+            
             // Crear el pedido
             $order = Order::create([
                 'order_number' => $this->generateOrderNumber(),
                 'daily_number' => $this->generateDailyNumber(),
                 'table_id' => $request->table_id,
-                'customer_id' => $customerId,
+                'customer_id' => $request->customer_id, // Puede ser null
+                'customer_name' => $request->customer_name, // Nombre temporal
                 'user_id' => Auth::id(),
                 'type' => $request->order_type,
                 'status' => Order::STATUS_PENDING,
@@ -789,30 +780,33 @@ class PosController extends Controller
         try {
             // Normalizar el tamaño
             $sizeMap = [
-                'personal' => 'Personal',
-                '25cm' => 'Personal',
-                'mediana' => 'Mediana',
-                '33cm' => 'Mediana',
-                'familiar' => 'Familiar',
-                '40cm' => 'Familiar',
-                'calzone' => 'Calzone',
+                'personal' => ['Personal', 'personal', '25cm'],
+                'mediana' => ['Mediana', 'mediana', '33cm'],
+                'familiar' => ['Familiar', 'familiar', '40cm'],
+                'calzone' => ['Calzone', 'calzone'],
             ];
             
-            $normalizedSize = $sizeMap[strtolower($size)] ?? $size;
+            $sizeKey = strtolower($size);
+            $searchTerms = $sizeMap[$sizeKey] ?? [$size];
             
-            Log::info("Buscando ingredientes para tamaño: {$normalizedSize}");
+            Log::info("Buscando ingredientes para tamaño: {$size}, términos: " . implode(', ', $searchTerms));
             
-            // Obtener ingredientes que contienen el tamaño en su nombre
-            $ingredients = Product::with('category') // ← AGREGAR RELACIÓN
+            // Obtener ingredientes que contienen cualquiera de los términos de búsqueda en su nombre
+            $ingredients = Product::with('category')
                 ->whereIn('category_id', function($query) {
                     $query->select('id')
                           ->from('categories')
-                          ->whereIn('name', ['Ingredientes', 'Ingredientes Premium']);
+                          ->where('name', 'LIKE', '%Ingrediente%');
                 })
                 ->where('is_active', true)
-                ->where('name', 'like', "%{$normalizedSize}%")
+                ->where(function($query) use ($searchTerms) {
+                    foreach ($searchTerms as $term) {
+                        $query->orWhere('name', 'like', "%{$term}%");
+                    }
+                })
                 ->orderBy('category_id')
                 ->orderBy('sort_order')
+                ->orderBy('name')
                 ->get();
             
             Log::info("Ingredientes encontrados: " . $ingredients->count());

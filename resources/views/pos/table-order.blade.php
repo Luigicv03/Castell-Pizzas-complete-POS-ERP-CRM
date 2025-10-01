@@ -104,7 +104,7 @@
                         </div>
                     </div>
                     <div class="text-sm text-gray-500">
-                        <p>Cliente: {{ $activeOrder->customer ? $activeOrder->customer->name : 'Cliente General' }}</p>
+                        <p>Cliente: {{ $activeOrder->customer ? $activeOrder->customer->name : ($activeOrder->customer_name ?: 'Cliente General') }}</p>
                         <p>Mesero: {{ $activeOrder->user->name }}</p>
                         <p>Hora: {{ $activeOrder->created_at->format('H:i') }}</p>
                     </div>

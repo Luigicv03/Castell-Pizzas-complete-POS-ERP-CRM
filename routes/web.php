@@ -4,23 +4,37 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\DashboardController;
 
-// Rutas de autenticación
-Auth::routes();
+// Rutas de autenticación (solo login, registro deshabilitado)
+Auth::routes(['register' => false]);
 
-// Redireccionar la raíz al dashboard
+// Redireccionar la raíz según permisos del usuario
 Route::get('/', function () {
-    return redirect()->route('dashboard');
+    if (auth()->check()) {
+        if (auth()->user()->can('dashboard.view')) {
+            return redirect()->route('dashboard');
+        }
+        return redirect()->route('pos.index');
+    }
+    return redirect()->route('login');
 });
 
 // Rutas protegidas por autenticación
 Route::middleware(['auth'])->group(function () {
-    // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/orders/{order}/details', [DashboardController::class, 'orderDetails'])->name('orders.details');
+    // Dashboard - solo para usuarios con permiso
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard')
+        ->middleware('can:dashboard.view');
     
-    // Ruta /home que redirige al dashboard (compatibilidad con Laravel UI)
+    Route::get('/orders/{order}/details', [DashboardController::class, 'orderDetails'])
+        ->name('orders.details')
+        ->middleware('can:dashboard.view');
+    
+    // Ruta /home que redirige al POS para usuarios sin permiso de dashboard
     Route::get('/home', function () {
-        return redirect()->route('dashboard');
+        if (auth()->user()->can('dashboard.view')) {
+            return redirect()->route('dashboard');
+        }
+        return redirect()->route('pos.index');
     })->name('home');
     
            // POS - Sistema de Punto de Venta
@@ -64,15 +78,21 @@ Route::prefix('pos')->name('pos.')->group(function () {
         Route::post('/sync-statuses', [App\Http\Controllers\TableController::class, 'syncStatuses'])->name('sync-statuses');
     });
     
-    // Productos
-    Route::prefix('products')->name('products.')->group(function () {
+    // Productos - requiere permisos
+    Route::prefix('products')->name('products.')->middleware(['can:products.view'])->group(function () {
         Route::get('/', [App\Http\Controllers\ProductController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\ProductController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\ProductController::class, 'store'])->name('store');
+        Route::middleware(['can:products.create'])->group(function () {
+            Route::get('/create', [App\Http\Controllers\ProductController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\ProductController::class, 'store'])->name('store');
+        });
         Route::get('/{product}', [App\Http\Controllers\ProductController::class, 'show'])->name('show');
-        Route::get('/{product}/edit', [App\Http\Controllers\ProductController::class, 'edit'])->name('edit');
-        Route::put('/{product}', [App\Http\Controllers\ProductController::class, 'update'])->name('update');
-        Route::delete('/{product}', [App\Http\Controllers\ProductController::class, 'destroy'])->name('destroy');
+        Route::middleware(['can:products.edit'])->group(function () {
+            Route::get('/{product}/edit', [App\Http\Controllers\ProductController::class, 'edit'])->name('edit');
+            Route::put('/{product}', [App\Http\Controllers\ProductController::class, 'update'])->name('update');
+        });
+        Route::middleware(['can:products.delete'])->group(function () {
+            Route::delete('/{product}', [App\Http\Controllers\ProductController::class, 'destroy'])->name('destroy');
+        });
     });
     
     // Categorías
@@ -86,15 +106,21 @@ Route::prefix('pos')->name('pos.')->group(function () {
         Route::delete('/{category}', [App\Http\Controllers\CategoryController::class, 'destroy'])->name('destroy');
     });
     
-    // Clientes
-    Route::prefix('customers')->name('customers.')->group(function () {
+    // Clientes - requiere permisos
+    Route::prefix('customers')->name('customers.')->middleware(['can:customers.view'])->group(function () {
         Route::get('/', [App\Http\Controllers\CustomerController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\CustomerController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\CustomerController::class, 'store'])->name('store');
+        Route::middleware(['can:customers.create'])->group(function () {
+            Route::get('/create', [App\Http\Controllers\CustomerController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\CustomerController::class, 'store'])->name('store');
+        });
         Route::get('/{customer}', [App\Http\Controllers\CustomerController::class, 'show'])->name('show');
-        Route::get('/{customer}/edit', [App\Http\Controllers\CustomerController::class, 'edit'])->name('edit');
-        Route::put('/{customer}', [App\Http\Controllers\CustomerController::class, 'update'])->name('update');
-        Route::delete('/{customer}', [App\Http\Controllers\CustomerController::class, 'destroy'])->name('destroy');
+        Route::middleware(['can:customers.edit'])->group(function () {
+            Route::get('/{customer}/edit', [App\Http\Controllers\CustomerController::class, 'edit'])->name('edit');
+            Route::put('/{customer}', [App\Http\Controllers\CustomerController::class, 'update'])->name('update');
+        });
+        Route::middleware(['can:customers.delete'])->group(function () {
+            Route::delete('/{customer}', [App\Http\Controllers\CustomerController::class, 'destroy'])->name('destroy');
+        });
     });
 
     
@@ -165,6 +191,18 @@ Route::prefix('pos')->name('pos.')->group(function () {
         Route::get('/behavior', [App\Http\Controllers\CrmController::class, 'behavior'])->name('behavior');
         Route::get('/campaigns', [App\Http\Controllers\CrmController::class, 'campaigns'])->name('campaigns');
         Route::get('/retention', [App\Http\Controllers\CrmController::class, 'retention'])->name('retention');
+    });
+
+    // Gestión de Usuarios - Solo Admin y Super Admin
+    Route::prefix('users')->name('users.')->middleware(['role:Admin|Super Admin'])->group(function () {
+        Route::get('/', [App\Http\Controllers\UserManagementController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\UserManagementController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\UserManagementController::class, 'store'])->name('store');
+        Route::get('/{user}/edit', [App\Http\Controllers\UserManagementController::class, 'edit'])->name('edit');
+        Route::put('/{user}', [App\Http\Controllers\UserManagementController::class, 'update'])->name('update');
+        Route::put('/{user}/password', [App\Http\Controllers\UserManagementController::class, 'updatePassword'])->name('update-password');
+        Route::put('/{user}/toggle-status', [App\Http\Controllers\UserManagementController::class, 'toggleStatus'])->name('toggle-status');
+        Route::delete('/{user}', [App\Http\Controllers\UserManagementController::class, 'destroy'])->name('destroy');
     });
 });
 

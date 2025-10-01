@@ -17,10 +17,33 @@ class DashboardController extends Controller
         // Estadísticas del día
         $today = now()->startOfDay();
         
+        // Calcular ventas y ganancias del día
+        $dailyOrders = Order::with(['items.product'])
+            ->whereDate('created_at', $today)
+            ->where('status', '!=', 'cancelled')
+            ->get();
+        
+        $dailySales = $dailyOrders->sum('total_amount');
+        $dailyCost = 0;
+        $dailyProfit = 0;
+        
+        foreach ($dailyOrders as $order) {
+            foreach ($order->items as $item) {
+                if ($item->product) {
+                    $itemCost = $item->product->cost * $item->quantity;
+                    $dailyCost += $itemCost;
+                }
+            }
+        }
+        
+        $dailyProfit = $dailySales - $dailyCost;
+        $profitMargin = $dailySales > 0 ? ($dailyProfit / $dailySales) * 100 : 0;
+        
         $stats = [
-            'daily_sales' => Order::whereDate('created_at', $today)
-                ->where('status', '!=', 'cancelled')
-                ->sum('total_amount'),
+            'daily_sales' => $dailySales,
+            'daily_cost' => $dailyCost,
+            'daily_profit' => $dailyProfit,
+            'profit_margin' => $profitMargin,
             
             'pending_orders' => Order::whereIn('status', ['pending', 'preparing'])
                 ->count(),
@@ -33,8 +56,8 @@ class DashboardController extends Controller
                 ->count(),
         ];
 
-        // Órdenes recientes
-        $recent_orders = Order::with(['customer', 'table', 'user'])
+        // Órdenes recientes con cálculo de ganancia
+        $recent_orders = Order::with(['customer', 'table', 'user', 'items.product'])
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
@@ -51,11 +74,31 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        // Órdenes del día para el modal de ganancias
+        $profitOrders = Order::with(['items.product', 'customer', 'table'])
+            ->whereDate('created_at', $today)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($order) {
+                $totalCost = 0;
+                foreach ($order->items as $item) {
+                    if ($item->product) {
+                        $totalCost += $item->product->cost * $item->quantity;
+                    }
+                }
+                $order->total_cost = $totalCost;
+                $order->profit = $order->total_amount - $totalCost;
+                $order->profit_margin = $order->total_amount > 0 ? ($order->profit / $order->total_amount) * 100 : 0;
+                return $order;
+            });
+
         // Asegurar que las colecciones no sean null
         $recent_orders = $recent_orders ?? collect();
         $top_products = $top_products ?? collect();
+        $profitOrders = $profitOrders ?? collect();
 
-        return view('dashboard', compact('stats', 'recent_orders', 'top_products'));
+        return view('dashboard', compact('stats', 'recent_orders', 'top_products', 'profitOrders'));
     }
 
     public function orderDetails(Order $order)

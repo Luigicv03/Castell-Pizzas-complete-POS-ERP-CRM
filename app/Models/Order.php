@@ -25,6 +25,7 @@ class Order extends Model
         'order_number',
         'daily_number',
         'customer_id',
+        'customer_name',
         'table_id',
         'user_id',
         'status',

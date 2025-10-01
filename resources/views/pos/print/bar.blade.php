@@ -103,7 +103,7 @@
         @if($order->table)
         <p><strong>Mesa:</strong> {{ $order->table->name }}</p>
         @endif
-        <p><strong>Cliente:</strong> {{ $order->customer ? $order->customer->name : 'Cliente General' }}</p>
+        <p><strong>Cliente:</strong> {{ $order->customer ? $order->customer->name : ($order->customer_name ?: 'Cliente General') }}</p>
         @if($order->customer && $order->customer->cedula)
         <p><strong>Cédula:</strong> {{ $order->customer->cedula }}</p>
         @endif
