@@ -59,6 +59,7 @@ Route::prefix('pos')->name('pos.')->group(function () {
     Route::post('/{orderId}/item/{itemId}/add-ingredient', [App\Http\Controllers\PosController::class, 'addIngredientToItem'])->name('add-ingredient');
     Route::delete('/{orderId}/item/{itemId}', [App\Http\Controllers\PosController::class, 'removeItemFromOrder'])->name('remove-item');
     Route::put('/{orderId}/item/{itemId}/quantity', [App\Http\Controllers\PosController::class, 'updateItemQuantity'])->name('update-quantity');
+    Route::put('/{orderId}/item/{itemId}/notes', [App\Http\Controllers\PosController::class, 'updateItemNotes'])->name('update-notes');
     
     // Rutas para impresión
     Route::get('/{orderId}/print/kitchen', [App\Http\Controllers\PosController::class, 'printKitchenOrder'])->name('print.kitchen');

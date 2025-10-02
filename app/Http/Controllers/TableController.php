@@ -19,13 +19,16 @@ class TableController extends Controller
      */
     public function index()
     {
-        // Obtener todas las mesas
-        $tables = Table::orderBy('name')->get();
+        // Obtener todas las mesas ordenadas por zona y nombre
+        $tables = Table::orderBy('zone')->orderBy('name')->get();
         
         // Sincronizar el estado de las mesas con las órdenes activas
         $this->syncTableStatuses($tables);
         
-        return view('tables.index', compact('tables'));
+        // Agrupar mesas por zona
+        $tablesByZone = $tables->groupBy('zone');
+        
+        return view('tables.index', compact('tables', 'tablesByZone'));
     }
 
     /**

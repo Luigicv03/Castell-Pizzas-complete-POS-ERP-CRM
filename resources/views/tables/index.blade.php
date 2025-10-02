@@ -241,30 +241,8 @@
         </div>
     </div>
 
-    <!-- Grid de mesas -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="text-lg font-semibold text-gray-900">Estado de las Mesas</h3>
-            <p class="text-sm text-gray-500">Haz clic en una mesa para ver su orden activa</p>
-        </div>
-        <div class="card-body">
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                @foreach($tables as $table)
-                <div class="table-card {{ $table->getStatusColorClass() }} cursor-pointer hover:shadow-lg transition-all duration-200"
-                     onclick="openTableOrder({{ $table->id }}, '{{ $table->status }}')">
-                    <div class="text-center">
-                        <div class="text-lg font-bold">{{ $table->name }}</div>
-                        <div class="text-xs mt-1">{{ $table->capacity }} personas</div>
-                        <div class="text-xs mt-1 capitalize">{{ $table->getStatusText() }}</div>
-                        @if($table->status === 'occupied')
-                        <div class="text-xs mt-1 text-red-600">Ocupada</div>
-                        @endif
-                    </div>
-                </div>
-                @endforeach
-            </div>
-        </div>
-    </div>
+    <!-- Layout Visual de Mesas -->
+    @include('tables._layout')
 
     <!-- Leyenda de estados -->
     <div class="card">

@@ -39,16 +39,9 @@
             <div class="absolute inset-0 bg-gray-600 opacity-75"></div>
         </div>
 
-        <!-- Sidebar -->
-        <div class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 shadow-xl transform transition-transform duration-300 ease-in-out"
-             :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-             x-show="sidebarOpen"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="-translate-x-full"
-             x-transition:enter-end="translate-x-0"
-             x-transition:leave="transition ease-in duration-300"
-             x-transition:leave-start="translate-x-0"
-             x-transition:leave-end="-translate-x-full">
+        <!-- Sidebar - Permanente en desktop, colapsable en móvil -->
+        <div class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0"
+             :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
             
             <!-- Logo Section -->
             <div class="flex items-center justify-between h-16 bg-primary-600 border-b border-primary-700 px-4">
@@ -58,9 +51,9 @@
                     </div>
                     <h1 class="text-xl font-bold text-white">Pizzería</h1>
                 </div>
-                <!-- Close button -->
+                <!-- Close button - Solo visible en móvil -->
                 <button @click="sidebarOpen = false" 
-                        class="p-1 rounded-md text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-white">
+                        class="lg:hidden p-1 rounded-md text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -68,7 +61,7 @@
             </div>
             
             <!-- Navigation -->
-            <nav class="mt-6 px-3">
+            <nav class="mt-6 px-3 h-[calc(100vh-7rem)] overflow-y-auto pb-4">
                 <div class="space-y-1">
                     @can('dashboard.view')
                     <!-- Dashboard -->
@@ -189,9 +182,9 @@
                 <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
                     <!-- Left side -->
                     <div class="flex items-center">
-                        <!-- Sidebar toggle button -->
+                        <!-- Sidebar toggle button - Solo móvil -->
                         <button @click="sidebarOpen = !sidebarOpen" 
-                                class="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 transition-colors duration-200"
+                                class="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 transition-colors duration-200"
                                 :class="sidebarOpen ? 'bg-primary-100 text-primary-600' : ''">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -200,8 +193,8 @@
                         
                         <!-- Page title -->
                         <div class="ml-4 lg:ml-0">
-                            <h1 class="text-xl font-semibold text-gray-900">@yield('title', 'Dashboard')</h1>
-                            <p class="text-sm text-gray-500 hidden sm:block">@yield('subtitle', 'Sistema de gestión de pizzería')</p>
+                            <h1 class="text-lg sm:text-xl font-semibold text-gray-900 truncate max-w-xs sm:max-w-none">@yield('title', 'Dashboard')</h1>
+                            <p class="text-xs sm:text-sm text-gray-500 hidden sm:block truncate">@yield('subtitle', 'Sistema de gestión de pizzería')</p>
                         </div>
                     </div>
 
@@ -271,10 +264,10 @@
                 </div>
             </header>
 
-            <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto">
-                <div class="py-4 sm:py-6">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Page Content - Optimizado -->
+            <main class="flex-1 overflow-y-auto bg-gray-50">
+                <div class="py-3 sm:py-4 lg:py-6">
+                    <div class="max-w-full mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
                         <!-- Flash Messages -->
                         @if (session('success'))
                             <div class="mb-6">

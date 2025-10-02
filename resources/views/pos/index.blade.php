@@ -5,29 +5,30 @@
 
 @section('content')
 <div class="space-y-6" x-data="posSystem()" x-init="initOrderStatusBar()">
-    <!-- POS Header -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- POS Header - Responsive -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"></path>
                     </svg>
                 </div>
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Sistema POS</h1>
-                    <p class="text-gray-600">Usuario: {{ auth()->user()->name }} • {{ now()->format('d/m/Y H:i') }}</p>
+                <div class="min-w-0">
+                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">Sistema POS</h1>
+                    <p class="text-xs sm:text-sm text-gray-600 truncate">{{ auth()->user()->name }} • {{ now()->format('d/m/Y H:i') }}</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-3">
-                <button @click="startNewOrder('dine_in')" class="btn-primary">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button @click="startNewOrder('dine_in')" class="btn-primary flex-1 sm:flex-initial text-sm sm:text-base whitespace-nowrap">
+                    <svg class="w-4 h-4 sm:mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
-                    Nuevo Pedido
+                    <span class="hidden sm:inline">Nuevo Pedido</span>
+                    <span class="sm:hidden">Nuevo</span>
                 </button>
-                <button class="btn-secondary">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button class="btn-secondary flex-1 sm:flex-initial text-sm sm:text-base whitespace-nowrap">
+                    <svg class="w-4 h-4 sm:mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                     </svg>
                     Historial
@@ -166,17 +167,29 @@
         </div>
     </div>
 
-    <!-- Main POS Interface -->
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <!-- Tables Section -->
-        <div class="lg:col-span-1">
-            <div class="card">
+    <!-- Main POS Interface - Mejorado sin espacios vacíos -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6">
+        <!-- Tables Section - Agrupadas por zona -->
+        <div class="xl:col-span-3" x-data="{ selectedZone: 'Salón Principal' }">
+            <div class="card h-full">
                 <div class="card-header">
-                    <h2 class="text-lg font-semibold text-gray-900">Estado de Mesas</h2>
-                    <p class="text-sm text-gray-500">Selecciona una mesa para el pedido</p>
+                    <h2 class="text-base lg:text-lg font-semibold text-gray-900">Mesas</h2>
+                    <p class="text-xs lg:text-sm text-gray-500">Selecciona una mesa</p>
                     
-                    <!-- Legend -->
-                    <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                    <!-- Zone Tabs -->
+                    <div class="mt-3 flex space-x-1 overflow-x-auto scrollbar-thin pb-2">
+                        @foreach($tablesByZone as $zone => $zoneTables)
+                        <button @click="selectedZone = '{{ $zone }}'" 
+                                :class="selectedZone === '{{ $zone }}' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                class="px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap transition-colors">
+                            {{ $zone }}
+                            <span class="ml-1 opacity-75">({{ $zoneTables->count() }})</span>
+                        </button>
+                        @endforeach
+                    </div>
+                    
+                    <!-- Legend - Compacta -->
+                    <div class="mt-2 lg:mt-3 flex flex-wrap gap-1.5 lg:gap-2 text-xs">
                         <div class="flex items-center space-x-1">
                             <div class="w-3 h-3 rounded-full bg-green-200 border border-green-500"></div>
                             <span class="text-gray-600">Libre</span>
@@ -195,36 +208,38 @@
                         </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <div class="grid grid-cols-2 gap-4 p-4">
-                        @foreach($tables as $table)
+                <div class="card-body p-3 lg:p-4">
+                    @foreach($tablesByZone as $zone => $zoneTables)
+                    <div x-show="selectedZone === '{{ $zone }}'" class="grid grid-cols-2 gap-2 lg:gap-3">
+                        @foreach($zoneTables as $table)
                         <div class="table-card {{ $table->status === 'free' ? 'free' : ($table->status === 'occupied' ? 'occupied' : ($table->status === 'reserved' ? 'reserved' : 'pending_payment')) }}"
                              @click="selectTable({{ $table->id }})"
                              :class="{ 'ring-2 ring-primary-500 ring-offset-2': selectedTable === {{ $table->id }} }">
                             <div class="text-center">
-                                <div class="text-lg font-bold">{{ $table->name }}</div>
-                                <div class="text-xs mt-1">{{ $table->capacity }} personas</div>
-                                <div class="text-xs mt-1 font-medium">{{ $table->getStatusText() }}</div>
+                                <div class="font-bold">{{ $table->name }}</div>
+                                <div class="text-xs mt-0.5">{{ $table->capacity }} pers.</div>
+                                <div class="text-xs mt-0.5 font-medium">{{ $table->getStatusText() }}</div>
                             </div>
                         </div>
                         @endforeach
                     </div>
+                    @endforeach
                 </div>
             </div>
         </div>
 
-        <!-- Products Section -->
-        <div class="lg:col-span-2">
-            <div class="card">
+        <!-- Products Section - Expandido -->
+        <div class="xl:col-span-6">
+            <div class="card h-full">
                 <div class="card-header">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div>
-                            <h2 class="text-lg font-semibold text-gray-900">Productos</h2>
-                            <p class="text-sm text-gray-500">Selecciona productos para agregar al pedido</p>
+                            <h2 class="text-base lg:text-lg font-semibold text-gray-900">Productos</h2>
+                            <p class="text-xs lg:text-sm text-gray-500">Selecciona productos</p>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-500">Categoría:</span>
-                            <select x-model="selectedCategory" class="form-select w-40">
+                            <span class="text-xs lg:text-sm text-gray-500 hidden sm:inline">Categoría:</span>
+                            <select x-model="selectedCategory" class="form-select text-sm w-full sm:w-40">
                                 <option value="">Todas</option>
                                 @foreach($categories as $category)
                                 <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -233,25 +248,25 @@
                         </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <!-- Category Filter Buttons -->
-                    <div class="flex space-x-2 mb-4 overflow-x-auto pb-2">
+                <div class="card-body p-3 lg:p-4">
+                    <!-- Category Filter Buttons - Responsive -->
+                    <div class="flex space-x-2 mb-3 lg:mb-4 overflow-x-auto pb-2 scrollbar-thin">
                         <button @click="selectedCategory = null" 
                                 :class="selectedCategory === null ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                                class="px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors duration-200">
+                                class="px-3 py-1.5 lg:px-4 lg:py-2 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap transition-colors duration-200">
                             Todas
                         </button>
                         @foreach($categories as $category)
                         <button @click="selectedCategory = {{ $category->id }}" 
                                 :class="selectedCategory === {{ $category->id }} ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                                class="px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors duration-200">
+                                class="px-3 py-1.5 lg:px-4 lg:py-2 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap transition-colors duration-200">
                             {{ $category->name }}
                         </button>
                         @endforeach
                     </div>
 
-                    <!-- Products Grid -->
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto scrollbar-thin">
+                    <!-- Products Grid - Responsive -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 lg:gap-3 max-h-[500px] overflow-y-auto scrollbar-thin">
                         @foreach($products as $product)
                         <div class="product-card"
                              @click="addToCart({{ $product->id }}, '{{ $product->name }}', {{ $product->price }})"
@@ -280,14 +295,14 @@
             </div>
         </div>
 
-        <!-- Order Summary -->
-        <div class="lg:col-span-1">
-            <div class="card">
+        <!-- Order Summary - Sticky en desktop -->
+        <div class="xl:col-span-3">
+            <div class="card sticky top-20">
                 <div class="card-header">
-                    <h2 class="text-lg font-semibold text-gray-900">Pedido Actual</h2>
-                    <p class="text-sm text-gray-500">Mesa: <span x-text="selectedTableName || 'Sin mesa'"></span></p>
+                    <h2 class="text-base lg:text-lg font-semibold text-gray-900">Pedido Actual</h2>
+                    <p class="text-xs lg:text-sm text-gray-500">Mesa: <span x-text="selectedTableName || 'Sin mesa'"></span></p>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-3 lg:p-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
                     <!-- Empty Cart State -->
                     <div x-show="cart.length === 0" class="text-center py-8">
                         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -305,7 +320,16 @@
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <!-- Item Principal -->
                                 <div class="flex items-center justify-between mb-2">
-                                    <h4 class="font-medium text-gray-900 text-sm" x-text="item.name"></h4>
+                                    <div class="flex items-center gap-2 flex-1">
+                                        <h4 class="font-medium text-gray-900 text-sm" x-text="item.name"></h4>
+                                        <!-- Botón de nota -->
+                                        <button @click="openItemNotesModal(index, item.name, item.itemNotes || '')" 
+                                                class="w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                                                :class="item.itemNotes ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600 hover:bg-gray-400'"
+                                                title="Agregar nota para cocina">
+                                            ?
+                                        </button>
+                                    </div>
                                     <button @click="removeFromCart(index)" class="text-danger-500 hover:text-danger-700 p-1">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -373,6 +397,24 @@
                                     </div>
                                     <span class="font-bold text-primary-600 text-sm" x-text="'$' + getItemTotal(item).toFixed(2)"></span>
                                 </div>
+                                
+                                <!-- Nota del item -->
+                                <template x-if="item.itemNotes && item.itemNotes.trim() !== ''">
+                                    <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                        <p class="text-xs font-semibold text-yellow-800 mb-1">📝 Nota para cocina:</p>
+                                        <p class="text-xs text-gray-700" x-text="item.itemNotes"></p>
+                                    </div>
+                                </template>
+                                
+                                <!-- Ingredientes Base (4 Estaciones / Multicereal) -->
+                                <template x-if="item.baseIngredients && item.baseIngredients.length > 0">
+                                    <div class="mt-2 pl-3 border-l-2 border-blue-400">
+                                        <p class="text-xs font-semibold text-blue-700 mb-1">Ingredientes incluidos:</p>
+                                        <template x-for="ing in item.baseIngredients" :key="ing.id">
+                                            <div class="text-xs text-gray-600">✓ <span x-text="ing.name"></span></div>
+                                        </template>
+                                    </div>
+                                </template>
                                 
                                 <!-- Ingredientes/Extras (children) -->
                                 <template x-if="item.children && item.children.length > 0">
@@ -560,6 +602,50 @@
         </div>
     </div>
 
+    <!-- Modal de Notas para Items -->
+    <div x-show="showItemNotesModal" 
+         @click.away="closeItemNotesModal()"
+         style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;"
+         x-cloak>
+        <div @click.stop style="background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 500px;">
+            <div style="padding: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 15px;">
+                    <div>
+                        <h3 style="font-size: 20px; font-weight: bold; color: #212529; margin: 0 0 5px 0;">📝 Nota para Cocina</h3>
+                        <p style="margin: 0; font-size: 14px; color: #6c757d;" x-text="currentItemName"></p>
+                    </div>
+                    <button @click="closeItemNotesModal()" 
+                            style="background: transparent; border: none; color: #dc3545; font-size: 28px; line-height: 1; cursor: pointer; padding: 0; width: 30px; height: 30px;">
+                        ×
+                    </button>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; color: #495057; margin-bottom: 8px;">
+                        Instrucciones especiales:
+                    </label>
+                    <textarea x-model="currentItemNotes" 
+                              rows="4" 
+                              placeholder="Ej: Poca salsa, sin cebolla, bien cocida, etc..."
+                              style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 14px; resize: vertical;"
+                              class="form-textarea"></textarea>
+                    <p style="font-size: 12px; color: #6c757d; margin-top: 5px;">
+                        Esta nota aparecerá en la comanda de cocina
+                    </p>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button @click="closeItemNotesModal()" class="btn btn-secondary">
+                        Cancelar
+                    </button>
+                    <button @click="saveItemNotes()" class="btn btn-primary">
+                        Guardar Nota
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 
@@ -575,6 +661,12 @@ function posSystem() {
         customerName: '',
         orderNotes: '',
         showCustomerModal: false,
+        
+        // Variables para notas de items
+        showItemNotesModal: false,
+        currentItemIndex: null,
+        currentItemName: '',
+        currentItemNotes: '',
         
         // Variables para delivery
         deliveryDistance: 0,
@@ -629,9 +721,26 @@ function posSystem() {
         },
 
         addToCart(productId, name, price) {
-            // Detectar si es pizza o calzone
-            const isPizza = name.toLowerCase().includes('pizza') && !name.toLowerCase().includes('caja');
-            const isCalzone = name.toLowerCase().includes('calzone');
+            const nameLower = name.toLowerCase();
+            
+            // Detectar pizzas especiales que requieren selección de ingredientes
+            const is4Estaciones = nameLower.includes('4 estaciones');
+            const isMulticereal = nameLower.includes('multicereal');
+            
+            // Si es pizza 4 Estaciones o Multicereal, abrir modal de ingredientes
+            if (is4Estaciones) {
+                openCustomPizzaModal(productId, name, price, 4); // 4 ingredientes
+                return;
+            }
+            
+            if (isMulticereal) {
+                openCustomPizzaModal(productId, name, price, 2); // 2 ingredientes
+                return;
+            }
+            
+            // Detectar si es pizza o calzone normal
+            const isPizza = nameLower.includes('pizza') && !nameLower.includes('caja');
+            const isCalzone = nameLower.includes('calzone');
             
             // Si es pizza o calzone, SIEMPRE crear un nuevo item (no acumular)
             if (isPizza || isCalzone) {
@@ -696,6 +805,42 @@ function posSystem() {
         // Remover un child (ingrediente/caja)
         removeChild(parentIndex, childIndex) {
             this.cart[parentIndex].children.splice(childIndex, 1);
+        },
+        
+        // Abrir modal de notas para un item
+        openItemNotesModal(index, itemName, currentNotes) {
+            this.currentItemIndex = index;
+            this.currentItemName = itemName;
+            this.currentItemNotes = currentNotes || '';
+            this.showItemNotesModal = true;
+        },
+        
+        // Guardar nota del item
+        saveItemNotes() {
+            if (this.currentItemIndex !== null) {
+                this.cart[this.currentItemIndex].itemNotes = this.currentItemNotes.trim();
+                
+                // Combinar notas base con notas adicionales
+                const baseNotes = this.cart[this.currentItemIndex].notes || '';
+                const itemNotes = this.currentItemNotes.trim();
+                
+                if (baseNotes && itemNotes) {
+                    this.cart[this.currentItemIndex].notes = `${baseNotes}. ${itemNotes}`;
+                } else if (itemNotes) {
+                    this.cart[this.currentItemIndex].notes = itemNotes;
+                } else {
+                    this.cart[this.currentItemIndex].notes = baseNotes;
+                }
+            }
+            this.closeItemNotesModal();
+        },
+        
+        // Cerrar modal de notas
+        closeItemNotesModal() {
+            this.showItemNotesModal = false;
+            this.currentItemIndex = null;
+            this.currentItemName = '';
+            this.currentItemNotes = '';
         },
         
         // Agregar ingrediente a un item del carrito (llamado desde función global)
@@ -929,7 +1074,8 @@ function posSystem() {
                     product_id: item.productId,
                     quantity: item.quantity,
                     unit_price: item.price,
-                    children: item.children && item.children.length > 0 ? item.children : []
+                    children: item.children && item.children.length > 0 ? item.children : [],
+                    notes: item.notes || '' // Incluir las notas con ingredientes base
                 })),
                 subtotal: this.subtotal,
                 tax_amount: 0, // Los precios ya incluyen IVA
@@ -1408,7 +1554,299 @@ async function addContainerToCartItem(cartIndex, itemName, containerName = 'Enva
     }
 }
 
+// Variables globales para modal de pizza personalizable
+let customPizzaData = {
+    productId: null,
+    name: '',
+    price: 0,
+    requiredIngredients: 0,
+    selectedIngredients: []
+};
+
+// Abrir modal de pizza personalizable (4 Estaciones o Multicereal)
+function openCustomPizzaModal(productId, name, price, requiredCount) {
+    customPizzaData = {
+        productId: productId,
+        name: name,
+        price: price,
+        requiredIngredients: requiredCount,
+        selectedIngredients: []
+    };
+    
+    document.getElementById('customPizzaTitle').textContent = name;
+    document.getElementById('customPizzaSubtitle').textContent = `Selecciona ${requiredCount} ingredientes incluidos en el precio`;
+    document.getElementById('selectedCountDisplay').textContent = `0/${requiredCount}`;
+    
+    loadIngredientsForCustomPizza(name);
+    document.getElementById('customPizzaModal').style.display = 'flex';
+}
+
+// Cargar ingredientes para pizza personalizable
+function loadIngredientsForCustomPizza(pizzaName) {
+    const allIngredients = @json($ingredients);
+    console.log('Todos los ingredientes:', allIngredients);
+    
+    // Determinar tamaño de la pizza
+    let sizeKeyword = '';
+    if (pizzaName.toLowerCase().includes('personal') || pizzaName.toLowerCase().includes('25cm')) {
+        sizeKeyword = 'Personal';
+    } else if (pizzaName.toLowerCase().includes('mediana') || pizzaName.toLowerCase().includes('33cm')) {
+        sizeKeyword = 'Mediana';
+    } else if (pizzaName.toLowerCase().includes('familiar') || pizzaName.toLowerCase().includes('40cm')) {
+        sizeKeyword = 'Familiar';
+    }
+    
+    console.log('Tamaño de pizza detectado:', sizeKeyword);
+    
+    // Filtrar ingredientes por tamaño y excluir "Doble"
+    const filteredIngredients = allIngredients.filter(ingredient => {
+        const name = ingredient.name;
+        const nameLower = name.toLowerCase();
+        
+        // Excluir ingredientes "Doble"
+        if (nameLower.includes('doble')) {
+            return false;
+        }
+        
+        // Incluir solo ingredientes del tamaño correspondiente
+        if (sizeKeyword) {
+            return nameLower.includes(sizeKeyword.toLowerCase());
+        }
+        
+        return true;
+    });
+    
+    console.log('Ingredientes filtrados:', filteredIngredients);
+    console.log('Total ingredientes filtrados:', filteredIngredients.length);
+    
+    const container = document.getElementById('customPizzaIngredientsList');
+    container.innerHTML = '';
+    
+    if (!filteredIngredients || filteredIngredients.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 20px;">No se encontraron ingredientes disponibles para este tamaño.</p>';
+        return;
+    }
+    
+    // Crear un mapa para agrupar ingredientes por nombre base
+    const ingredientsMap = new Map();
+    
+    filteredIngredients.forEach(ingredient => {
+        // Simplificar nombre quitando sufijos de tamaño
+        let baseName = ingredient.name
+            .replace(/\s+(Personal|Mediana|Familiar|25cm|33cm|40cm)/gi, '')
+            .trim();
+        
+        // Si no existe, agregarlo (tomamos el primero que aparezca)
+        if (!ingredientsMap.has(baseName)) {
+            ingredientsMap.set(baseName, {
+                id: ingredient.id,
+                name: baseName,
+                fullName: ingredient.name
+            });
+        }
+    });
+    
+    // Convertir el mapa a array y renderizar
+    const uniqueIngredients = Array.from(ingredientsMap.values());
+    console.log('Ingredientes únicos:', uniqueIngredients);
+    
+    uniqueIngredients.forEach(ingredient => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'custom-ingredient-btn';
+        button.setAttribute('data-ingredient-id', ingredient.id);
+        button.setAttribute('data-ingredient-name', ingredient.name);
+        
+        button.innerHTML = `
+            <span class="ingredient-icon">🍕</span>
+            <span class="ingredient-name">${ingredient.name}</span>
+            <span class="ingredient-check">✓</span>
+        `;
+        
+        button.onclick = () => toggleCustomIngredient(ingredient.id, ingredient.name, button);
+        container.appendChild(button);
+    });
+    
+    console.log('Ingredientes renderizados:', container.children.length);
+}
+
+// Alternar selección de ingrediente
+function toggleCustomIngredient(ingredientId, ingredientName, buttonElement) {
+    const index = customPizzaData.selectedIngredients.findIndex(i => i.id === ingredientId);
+    
+    if (index > -1) {
+        // Deseleccionar
+        customPizzaData.selectedIngredients.splice(index, 1);
+        buttonElement.classList.remove('selected');
+    } else {
+        // Verificar si ya alcanzó el límite
+        if (customPizzaData.selectedIngredients.length >= customPizzaData.requiredIngredients) {
+            alert(`Solo puedes seleccionar ${customPizzaData.requiredIngredients} ingredientes`);
+            return;
+        }
+        
+        // Seleccionar
+        customPizzaData.selectedIngredients.push({ id: ingredientId, name: ingredientName });
+        buttonElement.classList.add('selected');
+    }
+    
+    // Actualizar contador
+    const count = customPizzaData.selectedIngredients.length;
+    document.getElementById('selectedCountDisplay').textContent = `${count}/${customPizzaData.requiredIngredients}`;
+    
+    // Habilitar/deshabilitar botón de confirmar
+    const confirmBtn = document.getElementById('confirmCustomPizzaBtn');
+    if (count === customPizzaData.requiredIngredients) {
+        confirmBtn.disabled = false;
+        confirmBtn.style.opacity = '1';
+        confirmBtn.style.cursor = 'pointer';
+    } else {
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.cursor = 'not-allowed';
+    }
+}
+
+// Confirmar pizza personalizable
+function confirmCustomPizza() {
+    if (customPizzaData.selectedIngredients.length !== customPizzaData.requiredIngredients) {
+        alert(`Debes seleccionar exactamente ${customPizzaData.requiredIngredients} ingredientes`);
+        return;
+    }
+    
+    // Obtener el componente Alpine
+    const alpineComponent = Alpine.$data(document.querySelector('[x-data="posSystem()"]'));
+    
+    // Crear string con los ingredientes para las notas
+    const ingredientsString = customPizzaData.selectedIngredients.map(ing => ing.name).join(', ');
+    
+    // Agregar la pizza al carrito con los ingredientes en las notas
+    const pizzaItem = {
+        productId: customPizzaData.productId,
+        name: customPizzaData.name,
+        price: customPizzaData.price,
+        quantity: 1,
+        children: [],
+        notes: `Ingredientes base: ${ingredientsString}`,
+        baseIngredients: customPizzaData.selectedIngredients // Guardar para visualización
+    };
+    
+    alpineComponent.cart.push(pizzaItem);
+    
+    // Cerrar modal
+    closeCustomPizzaModal();
+}
+
+// Cerrar modal de pizza personalizable
+function closeCustomPizzaModal() {
+    document.getElementById('customPizzaModal').style.display = 'none';
+    customPizzaData = {
+        productId: null,
+        name: '',
+        price: 0,
+        requiredIngredients: 0,
+        selectedIngredients: []
+    };
+}
+
 </script>
+
+<!-- Modal de Pizza Personalizable (4 Estaciones / Multicereal) -->
+<div id="customPizzaModal" 
+     style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;">
+        <div style="padding: 24px;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 15px;">
+                <div>
+                    <h3 id="customPizzaTitle" style="font-size: 22px; font-weight: bold; color: #212529; margin: 0 0 5px 0;">Pizza Personalizable</h3>
+                    <p id="customPizzaSubtitle" style="margin: 0; font-size: 14px; color: #6c757d;">Selecciona los ingredientes</p>
+                </div>
+                <button onclick="closeCustomPizzaModal()" 
+                        style="background: transparent; border: none; color: #dc3545; font-size: 28px; line-height: 1; cursor: pointer; padding: 0; width: 30px; height: 30px;">
+                    ×
+                </button>
+            </div>
+            
+            <!-- Contador de selección -->
+            <div style="margin-bottom: 20px; padding: 12px; background: #e3f2fd; border-radius: 8px; text-align: center;">
+                <span style="font-size: 16px; font-weight: 600; color: #1976d2;">
+                    Ingredientes seleccionados: <span id="selectedCountDisplay">0/4</span>
+                </span>
+            </div>
+            
+            <!-- Lista de ingredientes -->
+            <div id="customPizzaIngredientsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                <!-- Se llenarán con JavaScript -->
+            </div>
+            
+            <!-- Footer con botones -->
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                <button onclick="closeCustomPizzaModal()" class="btn btn-secondary">
+                    Cancelar
+                </button>
+                <button id="confirmCustomPizzaBtn" onclick="confirmCustomPizza()" class="btn btn-primary" disabled style="opacity: 0.5;">
+                    Agregar al Carrito
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.custom-ingredient-btn {
+    background: white;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    position: relative;
+}
+
+.custom-ingredient-btn:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.custom-ingredient-btn.selected {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.custom-ingredient-btn .ingredient-icon {
+    font-size: 24px;
+}
+
+.custom-ingredient-btn .ingredient-name {
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.custom-ingredient-btn .ingredient-check {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 16px;
+    display: none;
+}
+
+.custom-ingredient-btn.selected .ingredient-check {
+    display: block;
+}
+
+.custom-ingredient-btn.selected .ingredient-name {
+    font-weight: 600;
+}
+</style>
 
 <!-- Modal de Ingredientes para POS -->
 <div id="ingredientsModalPOS" 

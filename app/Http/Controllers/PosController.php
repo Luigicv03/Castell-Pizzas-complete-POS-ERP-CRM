@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
+use App\Models\Ingredient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -25,10 +26,24 @@ class PosController extends Controller
         // Sincronizar estados de mesas antes de cargar
         $this->syncTableStatuses();
         
-        $tables = Table::where('is_active', true)->get();
+        $tables = Table::where('is_active', true)->orderBy('zone')->orderBy('name')->get();
+        
+        // Agrupar mesas por zona
+        $tablesByZone = $tables->groupBy('zone');
+        
         $categories = Category::where('is_active', true)->orderBy('sort_order')->get();
         $products = Product::where('is_active', true)->with('category')->get();
         $customers = Customer::where('is_active', true)->get();
+        
+        // Obtener ingredientes desde productos (categorías: Ingredientes Tradicionales e Ingredientes Premium)
+        $ingredientCategories = Category::whereIn('name', ['Ingredientes Tradicionales', 'Ingredientes Premium'])
+            ->where('is_active', true)
+            ->pluck('id');
+        
+        $ingredients = Product::whereIn('category_id', $ingredientCategories)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         
         // Obtener pedidos activos
         $activeOrders = Order::whereIn('status', ['pending', 'preparing', 'ready'])
@@ -44,9 +59,11 @@ class PosController extends Controller
 
         return view('pos.index', compact(
             'tables', 
+            'tablesByZone',
             'categories', 
             'products', 
             'customers', 
+            'ingredients',
             'activeOrders',
             'selectedTable'
         ));
@@ -158,6 +175,7 @@ class PosController extends Controller
                     'unit_price' => $item['unit_price'],
                     'total_price' => $item['quantity'] * $item['unit_price'],
                     'status' => 'pending',
+                    'notes' => $item['notes'] ?? null, // Guardar notas con ingredientes base
                 ]);
                 
                 // Si el item tiene children (ingredientes/cajas), crearlos también
@@ -233,7 +251,17 @@ class PosController extends Controller
         
         $products = \App\Models\Product::where('is_active', true)->with('category')->get();
         
-        return view('pos.order-detail', compact('order', 'categories', 'products'));
+        // Obtener ingredientes desde productos (categorías: Ingredientes Tradicionales e Ingredientes Premium)
+        $ingredientCategories = Category::whereIn('name', ['Ingredientes Tradicionales', 'Ingredientes Premium'])
+            ->where('is_active', true)
+            ->pluck('id');
+        
+        $ingredients = Product::whereIn('category_id', $ingredientCategories)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        
+        return view('pos.order-detail', compact('order', 'categories', 'products', 'ingredients'));
     }
 
     public function updateOrderStatus(Request $request, Order $order)
@@ -255,7 +283,8 @@ class PosController extends Controller
         try {
             $request->validate([
                 'product_id' => 'required|exists:products,id',
-                'quantity' => 'required|integer|min:1'
+                'quantity' => 'required|integer|min:1',
+                'notes' => 'nullable|string'
             ]);
 
             $order = Order::findOrFail($orderId);
@@ -274,7 +303,8 @@ class PosController extends Controller
                     'quantity' => $request->quantity,
                     'unit_price' => $product->price,
                     'total_price' => $product->price * $request->quantity,
-                    'status' => 'pending'
+                    'status' => 'pending',
+                    'notes' => $request->notes
                 ]);
             } else {
                 // Para productos que NO son pizzas, acumular como antes
@@ -336,6 +366,28 @@ class PosController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Cantidad actualizada correctamente'
+        ]);
+    }
+
+    /**
+     * Update order item notes (kitchen instructions)
+     */
+    public function updateItemNotes(Request $request, $orderId, $itemId)
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:500'
+        ]);
+
+        $order = Order::findOrFail($orderId);
+        $item = $order->items()->findOrFail($itemId);
+        
+        $item->update([
+            'notes' => $request->notes
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nota actualizada correctamente'
         ]);
     }
 

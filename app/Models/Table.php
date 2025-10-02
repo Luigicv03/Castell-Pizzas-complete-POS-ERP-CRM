@@ -13,6 +13,7 @@ class Table extends Model
     protected $fillable = [
         'name',
         'capacity',
+        'zone',
         'position_x',
         'position_y',
         'status',

@@ -94,15 +94,60 @@
             <div class="item">
                 <div class="item-quantity">{{ $item->quantity }}x</div>
                 <div class="item-name">{{ $item->product->name }}</div>
+                
+                @php
+                    $productName = strtolower($item->product->name);
+                    $is4Estaciones = str_contains($productName, '4 estaciones');
+                    $isMulticereal = str_contains($productName, 'multicereal');
+                    $baseIngredients = [];
+                    
+                    // Extraer ingredientes base desde las notas
+                    if ($item->notes && str_contains($item->notes, 'Ingredientes base:')) {
+                        $notesText = str_replace('Ingredientes base:', '', $item->notes);
+                        $baseIngredients = array_map('trim', explode(',', $notesText));
+                    }
+                @endphp
+                
+                @if($is4Estaciones && count($baseIngredients) == 4)
+                    <!-- Círculo dividido en 4 para Pizza 4 Estaciones -->
+                    <div style="margin: 5px 0; display: flex; justify-content: center;">
+                        <svg width="100" height="100" viewBox="0 0 100 100">
+                            <!-- Círculo exterior -->
+                            <circle cx="50" cy="50" r="48" fill="none" stroke="#000" stroke-width="2"/>
+                            <!-- Líneas divisorias -->
+                            <line x1="50" y1="2" x2="50" y2="98" stroke="#000" stroke-width="2"/>
+                            <line x1="2" y1="50" x2="98" y2="50" stroke="#000" stroke-width="2"/>
+                            <!-- Textos en cada cuadrante -->
+                            <text x="50" y="25" text-anchor="middle" font-size="8" font-weight="bold">{{ $baseIngredients[0] ?? '' }}</text>
+                            <text x="75" y="55" text-anchor="middle" font-size="8" font-weight="bold">{{ $baseIngredients[1] ?? '' }}</text>
+                            <text x="50" y="80" text-anchor="middle" font-size="8" font-weight="bold">{{ $baseIngredients[2] ?? '' }}</text>
+                            <text x="25" y="55" text-anchor="middle" font-size="8" font-weight="bold">{{ $baseIngredients[3] ?? '' }}</text>
+                        </svg>
+                    </div>
+                @elseif($isMulticereal && count($baseIngredients) == 2)
+                    <!-- Lista simple para Multicereal (2 ingredientes) -->
+                    <div style="margin-left: 15px; margin-top: 3px;">
+                        <div class="item-notes">✓ {{ $baseIngredients[0] ?? '' }}</div>
+                        <div class="item-notes">✓ {{ $baseIngredients[1] ?? '' }}</div>
+                    </div>
+                @endif
+                
                 @if($item->children && $item->children->count() > 0)
                 <div style="margin-left: 15px; margin-top: 2px;">
                     @foreach($item->children as $child)
-                    <div class="item-notes">+ {{ $child->product->name }} ({{ $child->quantity }}x)</div>
+                        @if($child->product_id && $child->product->price > 0)
+                        <div class="item-notes">+ {{ $child->product->name }} ({{ $child->quantity }}x)</div>
+                        @endif
                     @endforeach
                 </div>
                 @endif
-                @if($item->notes)
-                <div class="item-notes">Nota: {{ $item->notes }}</div>
+                
+                {{-- Mostrar notas normales (no de ingredientes base) --}}
+                @if($item->notes && !str_contains($item->notes, 'Ingredientes base:'))
+                <div style="margin-top: 5px; padding: 5px; background: #fffacd; border: 1px solid #ffd700; border-radius: 3px;">
+                    <div style="font-weight: bold; font-size: 11px; margin-bottom: 2px;">📝 NOTA ESPECIAL:</div>
+                    <div style="font-size: 12px; font-weight: bold;">{{ $item->notes }}</div>
+                </div>
                 @endif
             </div>
             @endforeach
