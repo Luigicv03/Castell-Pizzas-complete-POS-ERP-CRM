@@ -154,6 +154,19 @@
         @else
             <p>No hay productos para cocina en esta orden.</p>
         @endif
+        
+        <!-- Total del Pedido -->
+        <div style="border-top: 2px solid #000; margin-top: 10px; padding-top: 10px; text-align: center;">
+            <div style="font-weight: bold; font-size: 14px;">
+                TOTAL DEL PEDIDO:
+            </div>
+            <div style="font-weight: bold; font-size: 16px; margin-top: 5px;">
+                ${{ number_format($order->total_amount, 2) }} USD
+            </div>
+            <div style="font-size: 12px; color: #666;">
+                ({{ number_format($order->total_amount * $exchangeRate->usd_to_bsf, 2) }} BsF)
+            </div>
+        </div>
     </div>
 
     <div class="footer no-print">

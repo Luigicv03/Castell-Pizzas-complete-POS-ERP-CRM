@@ -196,7 +196,11 @@
             @endif
             <div class="total-line total-final">
                 <span>TOTAL:</span>
-                <span>${{ number_format($order->total_amount, 2) }}</span>
+                <span>${{ number_format($order->total_amount, 2) }} USD</span>
+            </div>
+            <div class="total-line total-final">
+                <span></span>
+                <span>{{ number_format($order->total_amount * $exchangeRate->usd_to_bsf, 2) }} BsF</span>
             </div>
         </div>
     </div>

@@ -60,6 +60,8 @@ Route::prefix('pos')->name('pos.')->group(function () {
     Route::delete('/{orderId}/item/{itemId}', [App\Http\Controllers\PosController::class, 'removeItemFromOrder'])->name('remove-item');
     Route::put('/{orderId}/item/{itemId}/quantity', [App\Http\Controllers\PosController::class, 'updateItemQuantity'])->name('update-quantity');
     Route::put('/{orderId}/item/{itemId}/notes', [App\Http\Controllers\PosController::class, 'updateItemNotes'])->name('update-notes');
+Route::get('/exchange-rate/current', [App\Http\Controllers\PosController::class, 'getCurrentExchangeRate'])->name('exchange-rate.current');
+Route::post('/process-order', [App\Http\Controllers\PosController::class, 'processOrder'])->name('process-order');
     
     // Rutas para impresión
     Route::get('/{orderId}/print/kitchen', [App\Http\Controllers\PosController::class, 'printKitchenOrder'])->name('print.kitchen');
@@ -204,6 +206,14 @@ Route::prefix('pos')->name('pos.')->group(function () {
         Route::put('/{user}/password', [App\Http\Controllers\UserManagementController::class, 'updatePassword'])->name('update-password');
         Route::put('/{user}/toggle-status', [App\Http\Controllers\UserManagementController::class, 'toggleStatus'])->name('toggle-status');
         Route::delete('/{user}', [App\Http\Controllers\UserManagementController::class, 'destroy'])->name('destroy');
+    });
+    
+    // Tasas de Cambio - solo para administradores, superadministrador y gerente
+    Route::prefix('exchange-rates')->name('exchange-rates.')->middleware(['role:Admin|Super Admin|Gerente'])->group(function () {
+        Route::get('/', [App\Http\Controllers\ExchangeRateController::class, 'index'])->name('index');
+        Route::put('/update', [App\Http\Controllers\ExchangeRateController::class, 'update'])->name('update');
+        Route::post('/update-from-bcv', [App\Http\Controllers\ExchangeRateController::class, 'updateFromBCV'])->name('update-from-bcv');
+        Route::get('/current-rate', [App\Http\Controllers\ExchangeRateController::class, 'getCurrentRate'])->name('current-rate');
     });
 });
 

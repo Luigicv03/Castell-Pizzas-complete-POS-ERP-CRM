@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Ingredient;
+use App\Models\ExchangeRate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -57,6 +58,9 @@ class PosController extends Controller
             $selectedTable = Table::find($selectedTableId);
         }
 
+        // Obtener tasa de cambio actual
+        $exchangeRate = ExchangeRate::getCurrentRate();
+
         return view('pos.index', compact(
             'tables', 
             'tablesByZone',
@@ -65,7 +69,8 @@ class PosController extends Controller
             'customers', 
             'ingredients',
             'activeOrders',
-            'selectedTable'
+            'selectedTable',
+            'exchangeRate'
         ));
     }
 
@@ -261,7 +266,10 @@ class PosController extends Controller
             ->orderBy('name')
             ->get();
         
-        return view('pos.order-detail', compact('order', 'categories', 'products', 'ingredients'));
+        // Obtener tasa de cambio actual
+        $exchangeRate = ExchangeRate::getCurrentRate();
+
+        return view('pos.order-detail', compact('order', 'categories', 'products', 'ingredients', 'exchangeRate'));
     }
 
     public function updateOrderStatus(Request $request, Order $order)
@@ -389,6 +397,160 @@ class PosController extends Controller
             'success' => true,
             'message' => 'Nota actualizada correctamente'
         ]);
+    }
+
+    /**
+     * Obtener la tasa de cambio actual
+     */
+    public function getCurrentExchangeRate()
+    {
+        $exchangeRate = ExchangeRate::getCurrentRate();
+        
+        return response()->json([
+            'usd_to_bsf' => $exchangeRate->usd_to_bsf,
+            'is_automatic' => $exchangeRate->is_automatic,
+            'last_updated_at' => $exchangeRate->last_updated_at,
+            'source' => $exchangeRate->source
+        ]);
+    }
+
+    /**
+     * Procesar pedido con pagos multimoneda
+     */
+    public function processOrder(Request $request)
+    {
+        try {
+            $request->validate([
+                'order_type' => 'required|in:dine_in,takeaway,delivery',
+                'table_id' => 'nullable|exists:tables,id',
+                'customer_name' => 'nullable|string|max:255',
+                'customer_id' => 'nullable|exists:customers,id',
+                'order_notes' => 'nullable|string',
+                'items' => 'required|array|min:1',
+                'items.*.product_id' => 'required|exists:products,id',
+                'items.*.quantity' => 'required|integer|min:1',
+                'items.*.unit_price' => 'required|numeric|min:0',
+                'items.*.notes' => 'nullable|string',
+                'payments' => 'required|array|min:1',
+                'payments.*.method' => 'required|in:cash,pago_movil,zelle,binance,card',
+                'payments.*.amount' => 'required|numeric|min:0.01',
+                'payments.*.currency' => 'required|in:USD,BSF',
+                'payments.*.reference' => 'nullable|string',
+                'payments.*.notes' => 'nullable|string',
+                'exchange_rate' => 'required|numeric|min:0.01'
+            ]);
+
+            DB::beginTransaction();
+
+            // Crear el pedido
+            $order = Order::create([
+                'order_number' => $this->generateOrderNumber(),
+                'daily_number' => $this->getDailyOrderNumber(),
+                'type' => $request->order_type,
+                'table_id' => $request->table_id,
+                'customer_name' => $request->customer_name,
+                'customer_id' => $request->customer_id,
+                'status' => 'pending',
+                'total_amount' => 0, // Se calculará después
+                'notes' => $request->order_notes,
+                'user_id' => Auth::id()
+            ]);
+
+            $totalAmount = 0;
+
+            // Agregar items al pedido
+            foreach ($request->items as $itemData) {
+                $product = Product::findOrFail($itemData['product_id']);
+                $itemTotal = $itemData['unit_price'] * $itemData['quantity'];
+                
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'parent_id' => null,
+                    'product_id' => $product->id,
+                    'quantity' => $itemData['quantity'],
+                    'unit_price' => $itemData['unit_price'],
+                    'total_price' => $itemTotal,
+                    'status' => 'pending',
+                    'notes' => $itemData['notes'] ?? null
+                ]);
+
+                $totalAmount += $itemTotal;
+
+                // Agregar children si existen
+                if (isset($itemData['children']) && is_array($itemData['children'])) {
+                    foreach ($itemData['children'] as $childData) {
+                        if (isset($childData['product_id']) && $childData['product_id']) {
+                            $childProduct = Product::findOrFail($childData['product_id']);
+                            OrderItem::create([
+                                'order_id' => $order->id,
+                                'parent_id' => null, // Se actualizará después
+                                'product_id' => $childProduct->id,
+                                'quantity' => $childData['quantity'] ?? 1,
+                                'unit_price' => $childData['unit_price'] ?? $childProduct->price,
+                                'total_price' => ($childData['unit_price'] ?? $childProduct->price) * ($childData['quantity'] ?? 1),
+                                'status' => 'pending'
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            // Actualizar el total del pedido
+            $order->update(['total_amount' => $totalAmount]);
+
+            // Procesar pagos
+            foreach ($request->payments as $paymentData) {
+                $payment = new Payment();
+                
+                if ($paymentData['currency'] === 'USD') {
+                    $payment->setAmountFromUsd($paymentData['amount'], $request->exchange_rate);
+                } else {
+                    $payment->setAmountFromBsF($paymentData['amount'], $request->exchange_rate);
+                }
+                
+                $payment->order_id = $order->id;
+                $payment->method = $paymentData['method'];
+                $payment->reference = $paymentData['reference'] ?? null;
+                $payment->notes = $paymentData['notes'] ?? null;
+                $payment->user_id = Auth::id();
+                
+                $payment->save();
+            }
+
+            // Crear o actualizar cliente si se proporcionó información completa
+            if ($request->customer_name && $request->customer_id) {
+                // Actualizar cliente existente
+                $customer = Customer::findOrFail($request->customer_id);
+                $customer->update(['name' => $request->customer_name]);
+                $order->update(['customer_id' => $customer->id]);
+            } elseif ($request->customer_name && !$request->customer_id) {
+                // Crear nuevo cliente temporal (solo nombre)
+                $customer = Customer::create([
+                    'name' => $request->customer_name,
+                    'email' => null,
+                    'phone' => null,
+                    'address' => null
+                ]);
+                $order->update(['customer_id' => $customer->id]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pedido procesado exitosamente',
+                'order' => $order->load(['items.product', 'payments'])
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error processing order: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar el pedido: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function removeItemFromOrder($orderId, $itemId)
@@ -546,7 +708,9 @@ class PosController extends Controller
             return !str_contains(strtolower($categoryName), 'bebida');
         });
 
-        return view('pos.print.kitchen', compact('order', 'kitchenItems'));
+        $exchangeRate = ExchangeRate::getCurrentRate();
+        
+        return view('pos.print.kitchen', compact('order', 'kitchenItems', 'exchangeRate'));
     }
 
     /**
@@ -569,7 +733,9 @@ class PosController extends Controller
             return str_contains(strtolower($categoryName), 'bebida');
         });
 
-        return view('pos.print.bar', compact('order', 'barItems'));
+        $exchangeRate = ExchangeRate::getCurrentRate();
+        
+        return view('pos.print.bar', compact('order', 'barItems', 'exchangeRate'));
     }
 
     /**

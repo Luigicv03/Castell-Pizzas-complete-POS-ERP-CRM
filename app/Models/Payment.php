@@ -23,30 +23,33 @@ class Payment extends Model
 
     protected $fillable = [
         'order_id',
+        'method',
         'amount',
-        'payment_method',
+        'amount_usd',
+        'amount_bsf',
+        'exchange_rate',
+        'currency',
         'reference',
-        'status',
         'notes',
         'user_id',
-        'currency',
-        'exchange_rate',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'amount_usd' => 'decimal:2',
+        'amount_bsf' => 'decimal:2',
+        'exchange_rate' => 'decimal:4',
     ];
 
     // Métodos de utilidad
     public function getPaymentMethodText(): string
     {
-        return match($this->payment_method) {
-            self::METHOD_CASH => 'Efectivo',
-            self::METHOD_MOBILE_PAYMENT => 'Pago Móvil',
-            self::METHOD_ZELLE => 'Zelle',
-            self::METHOD_BINANCE => 'Binance',
-            self::METHOD_POS => 'Punto de Venta',
-            self::METHOD_TRANSFER => 'Transferencia',
+        return match($this->method) {
+            'cash' => 'Efectivo',
+            'pago_movil' => 'Pago Móvil',
+            'zelle' => 'Zelle',
+            'binance' => 'Binance',
+            'card' => 'Tarjeta',
             default => 'Desconocido',
         };
     }
@@ -71,6 +74,45 @@ class Payment extends Model
             self::STATUS_REFUNDED => 'badge-info',
             default => 'badge-secondary',
         };
+    }
+
+    // Métodos para multimoneda
+    public function getAmountInUsd(): float
+    {
+        if ($this->currency === 'USD') {
+            return $this->amount_usd ?? $this->amount ?? 0;
+        } elseif ($this->currency === 'BSF' && $this->exchange_rate) {
+            return round(($this->amount_bsf ?? $this->amount ?? 0) / $this->exchange_rate, 2);
+        }
+        return $this->amount ?? 0;
+    }
+
+    public function getAmountInBsF(): float
+    {
+        if ($this->currency === 'BSF') {
+            return $this->amount_bsf ?? $this->amount ?? 0;
+        } elseif ($this->currency === 'USD' && $this->exchange_rate) {
+            return round(($this->amount_usd ?? $this->amount ?? 0) * $this->exchange_rate, 2);
+        }
+        return $this->amount ?? 0;
+    }
+
+    public function setAmountFromUsd(float $usdAmount, float $exchangeRate): void
+    {
+        $this->amount_usd = $usdAmount;
+        $this->amount_bsf = round($usdAmount * $exchangeRate, 2);
+        $this->amount = $usdAmount;
+        $this->exchange_rate = $exchangeRate;
+        $this->currency = 'USD';
+    }
+
+    public function setAmountFromBsF(float $bsfAmount, float $exchangeRate): void
+    {
+        $this->amount_bsf = $bsfAmount;
+        $this->amount_usd = round($bsfAmount / $exchangeRate, 2);
+        $this->amount = $this->amount_usd;
+        $this->exchange_rate = $exchangeRate;
+        $this->currency = 'BSF';
     }
 
     // Relaciones
