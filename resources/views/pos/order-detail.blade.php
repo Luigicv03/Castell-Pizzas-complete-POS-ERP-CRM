@@ -850,9 +850,14 @@
                     </div>
                     <div class="flex justify-between items-center mt-2 border-t pt-2">
                         <span class="font-bold">Restante:</span>
-                        <span class="text-xl font-bold" :class="remainingAmount > 0 ? 'text-danger' : 'text-success'">
-                            $<span x-text="remainingAmount.toFixed(2)"></span>
-                        </span>
+                        <div class="text-right">
+                            <span class="text-xl font-bold" :class="remainingAmount > 0 ? 'text-danger' : 'text-success'">
+                                $<span x-text="remainingAmount.toFixed(2)"></span>
+                            </span>
+                            <div class="text-sm text-gray-600" x-show="remainingAmount > 0">
+                                (<span x-text="parseFloat((remainingAmount * {{ $exchangeRate->usd_to_bsf }}).toFixed(2))"></span> BsF)
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -867,9 +872,15 @@
                                     <span x-show="payment.reference" class="text-xs text-gray-600 ml-2">
                                         (Ref: <span x-text="payment.reference"></span>)
                                     </span>
+                                    <div class="text-xs text-gray-600" x-show="payment.currency === 'BsF'">
+                                        <span x-text="payment.amountBsf.toFixed(2)"></span> BsF
+                                    </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span class="font-bold">$<span x-text="payment.amount.toFixed(2)"></span></span>
+                                    <div class="text-right">
+                                        <div class="font-bold">$<span x-text="payment.amount.toFixed(2)"></span></div>
+                                        <div class="text-xs text-gray-600" x-show="payment.currency === 'USD'">USD</div>
+                                    </div>
                                     <button @click="removePayment(index)" class="text-danger hover:text-danger-700 text-sm">
                                         <i class="fas fa-times"></i>
                                     </button>
@@ -898,9 +909,23 @@
                             </div>
                             
                             <div>
-                                <label class="form-label">Monto</label>
+                                <label class="form-label">
+                                    Monto 
+                                    <span x-show="['mobile_payment', 'pos', 'transfer'].includes(currentPayment.method)">
+                                        (BsF)
+                                    </span>
+                                    <span x-show="!['mobile_payment', 'pos', 'transfer'].includes(currentPayment.method) || currentPayment.method === ''">
+                                        (USD)
+                                    </span>
+                                </label>
                                 <input type="number" x-model="currentPayment.amount" step="0.01" min="0.01" 
-                                       :max="remainingAmount" class="form-input" required>
+                                       :placeholder="['mobile_payment', 'pos', 'transfer'].includes(currentPayment.method) ? 
+                                                     'Monto en Bolívares' : 'Monto en Dólares'"
+                                       class="form-input" required>
+                                <small class="text-xs text-gray-600" 
+                                       x-show="['mobile_payment', 'pos', 'transfer'].includes(currentPayment.method) && currentPayment.amount > 0">
+                                    ≈ $<span x-text="(currentPayment.amount / {{ $exchangeRate->usd_to_bsf }}).toFixed(2)"></span> USD
+                                </small>
                             </div>
                             
                             <div x-show="currentPayment.method === 'transfer' || currentPayment.method === 'mobile_payment' || currentPayment.method === 'zelle'" 
@@ -1617,16 +1642,38 @@ function orderDetailSystem() {
                 return;
             }
             
-            if (this.currentPayment.amount > this.remainingAmount) {
+            // Determinar si el método de pago es en bolívares
+            const isBsfMethod = ['mobile_payment', 'pos', 'transfer'].includes(this.currentPayment.method);
+            
+            // Convertir el monto a USD si es un método en bolívares
+            const exchangeRate = {{ $exchangeRate->usd_to_bsf }};
+            let amountInUsd = parseFloat(this.currentPayment.amount);
+            let amountInBsf = null;
+            
+            if (isBsfMethod) {
+                // El monto ingresado está en BsF, convertir a USD
+                amountInBsf = parseFloat(this.currentPayment.amount);
+                amountInUsd = parseFloat((amountInBsf / exchangeRate).toFixed(2)); // Redondear a 2 decimales
+            }
+            
+            // Validar que el monto no sea mayor al restante (con margen de 0.01 por redondeo)
+            if (amountInUsd > (this.remainingAmount + 0.01)) {
                 alert('El monto no puede ser mayor al restante');
                 return;
+            }
+            
+            // Si el monto es casi igual al restante (diferencia menor a 0.01), ajustar al restante exacto
+            if (Math.abs(amountInUsd - this.remainingAmount) < 0.01) {
+                amountInUsd = this.remainingAmount;
             }
             
             // Agregar el pago al array
             this.payments.push({
                 method: this.currentPayment.method,
-                amount: parseFloat(this.currentPayment.amount),
-                reference: this.currentPayment.reference
+                amount: amountInUsd, // Siempre guardar en USD
+                amountBsf: amountInBsf, // Guardar el monto en BsF si aplica
+                reference: this.currentPayment.reference,
+                currency: isBsfMethod ? 'BsF' : 'USD'
             });
             
             // Resetear el formulario con el nuevo restante

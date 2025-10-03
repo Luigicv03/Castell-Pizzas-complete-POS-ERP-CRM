@@ -816,18 +816,26 @@ class PosController extends Controller
                 }
             }
 
+            // Obtener tasa de cambio actual
+            $exchangeRate = ExchangeRate::getCurrentRate();
+            
             // Crear múltiples pagos
             $totalPaid = 0;
             foreach ($request->payments as $paymentData) {
+                // Determinar si es un método en bolívares
+                $isBsfMethod = in_array($paymentData['method'], ['mobile_payment', 'pos', 'transfer']);
+                
                 $payment = Payment::create([
                     'order_id' => $order->id,
-                    'amount' => $paymentData['amount'],
+                    'amount' => $paymentData['amount'], // Monto en USD
+                    'amount_usd' => $paymentData['amount'], // Monto en USD
+                    'amount_bsf' => $isBsfMethod ? ($paymentData['amountBsf'] ?? ($paymentData['amount'] * $exchangeRate->usd_to_bsf)) : null,
                     'payment_method' => $paymentData['method'],
                     'reference' => $paymentData['reference'] ?? null,
                     'status' => Payment::STATUS_COMPLETED,
                     'user_id' => Auth::id(),
-                    'currency' => 'USD',
-                    'exchange_rate' => 1,
+                    'currency' => $paymentData['currency'] ?? 'USD',
+                    'exchange_rate' => $isBsfMethod ? $exchangeRate->usd_to_bsf : 1,
                 ]);
                 $totalPaid += $paymentData['amount'];
             }

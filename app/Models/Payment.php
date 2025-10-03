@@ -44,14 +44,28 @@ class Payment extends Model
     // Métodos de utilidad
     public function getPaymentMethodText(): string
     {
-        return match($this->method) {
-            'cash' => 'Efectivo',
-            'pago_movil' => 'Pago Móvil',
+        return match($this->payment_method) {
+            'cash' => 'Efectivo USD',
+            'mobile_payment' => 'Pago Móvil',
             'zelle' => 'Zelle',
             'binance' => 'Binance',
+            'pos' => 'Punto de Venta',
+            'transfer' => 'Transferencia',
             'card' => 'Tarjeta',
             default => 'Desconocido',
         };
+    }
+
+    public function getFormattedAmountText(): string
+    {
+        $text = '$' . number_format($this->amount, 2);
+        
+        // Si el pago fue en bolívares, mostrar también el monto en BsF
+        if ($this->amount_bsf && $this->amount_bsf > 0) {
+            $text .= ' (' . number_format($this->amount_bsf, 2) . ' BsF)';
+        }
+        
+        return $text;
     }
 
     public function getStatusText(): string

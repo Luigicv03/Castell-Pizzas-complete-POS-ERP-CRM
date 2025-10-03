@@ -276,7 +276,14 @@
                                     <p class="text-sm text-gray-500">{{ $payment->created_at->format('d/m/Y H:i') }}</p>
                                 </div>
                                 <div class="text-right">
-                                    <p class="text-lg font-bold text-gray-900">${{ number_format($payment->amount, 2) }}</p>
+                                    <p class="text-lg font-bold text-gray-900">
+                                        ${{ number_format($payment->amount, 2) }}
+                                        @if($payment->amount_bsf && $payment->amount_bsf > 0)
+                                            <span class="text-sm text-gray-600 font-normal">
+                                                ({{ number_format($payment->amount_bsf, 2) }} BsF)
+                                            </span>
+                                        @endif
+                                    </p>
                                     <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $payment->status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
                                         {{ $payment->getStatusText() }}
                                     </span>
