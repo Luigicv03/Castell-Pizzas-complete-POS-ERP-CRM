@@ -23,7 +23,7 @@ class Payment extends Model
 
     protected $fillable = [
         'order_id',
-        'method',
+        'payment_method',
         'amount',
         'amount_usd',
         'amount_bsf',
@@ -32,6 +32,7 @@ class Payment extends Model
         'reference',
         'notes',
         'user_id',
+        'status',
     ];
 
     protected $casts = [

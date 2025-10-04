@@ -13,9 +13,10 @@ return new class extends Migration
     public function up(): void
     {
         // Actualizar el enum de payment_method para incluir todos los métodos de pago
+        DB::statement("ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check");
         DB::statement("ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_payment_method_check");
-        DB::statement("ALTER TABLE payments ALTER COLUMN payment_method TYPE VARCHAR(20)");
-        DB::statement("ALTER TABLE payments ADD CONSTRAINT payments_payment_method_check CHECK (payment_method IN ('cash', 'mobile_payment', 'zelle', 'binance', 'pos', 'transfer'))");
+        DB::statement("ALTER TABLE payments ALTER COLUMN payment_method TYPE VARCHAR(50)");
+        DB::statement("ALTER TABLE payments ADD CONSTRAINT payments_payment_method_check CHECK (payment_method IN ('cash', 'mobile_payment', 'zelle', 'binance', 'pos', 'transfer', 'card'))");
     }
 
     /**
