@@ -115,4 +115,82 @@ class CategoryController extends Controller
             'is_active' => $category->is_active
         ]);
     }
+
+    /**
+     * API: Get all categories
+     */
+    public function getCategories()
+    {
+        $categories = Category::withCount('products')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($categories);
+    }
+
+    /**
+     * API: Store category
+     */
+    public function storeApi(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:categories',
+            'description' => 'nullable|string|max:500',
+            'color' => 'nullable|string|max:7',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
+        ]);
+
+        $category = Category::create($request->all());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Categoría creada exitosamente.',
+            'category' => $category->loadCount('products')
+        ]);
+    }
+
+    /**
+     * API: Update category
+     */
+    public function updateApi(Request $request, Category $category)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:categories,name,' . $category->id,
+            'description' => 'nullable|string|max:500',
+            'color' => 'nullable|string|max:7',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_active' => 'boolean',
+        ]);
+
+        $category->update($request->all());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Categoría actualizada exitosamente.',
+            'category' => $category->loadCount('products')
+        ]);
+    }
+
+    /**
+     * API: Delete category
+     */
+    public function destroyApi(Category $category)
+    {
+        // Check if category has products
+        if ($category->products()->count() > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede eliminar la categoría porque tiene productos asociados.'
+            ], 422);
+        }
+
+        $category->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Categoría eliminada exitosamente.'
+        ]);
+    }
 }

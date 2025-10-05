@@ -99,14 +99,21 @@ Route::post('/process-order', [App\Http\Controllers\PosController::class, 'proce
     });
     
     // Categorías
-    Route::prefix('categories')->name('categories.')->group(function () {
+    Route::prefix('categories')->name('categories.')->middleware(['can:products.view'])->group(function () {
         Route::get('/', [App\Http\Controllers\CategoryController::class, 'index'])->name('index');
-        Route::get('/create', [App\Http\Controllers\CategoryController::class, 'create'])->name('create');
-        Route::post('/', [App\Http\Controllers\CategoryController::class, 'store'])->name('store');
+        Route::middleware(['can:products.create'])->group(function () {
+            Route::get('/create', [App\Http\Controllers\CategoryController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\CategoryController::class, 'store'])->name('store');
+        });
         Route::get('/{category}', [App\Http\Controllers\CategoryController::class, 'show'])->name('show');
-        Route::get('/{category}/edit', [App\Http\Controllers\CategoryController::class, 'edit'])->name('edit');
-        Route::put('/{category}', [App\Http\Controllers\CategoryController::class, 'update'])->name('update');
-        Route::delete('/{category}', [App\Http\Controllers\CategoryController::class, 'destroy'])->name('destroy');
+        Route::middleware(['can:products.edit'])->group(function () {
+            Route::get('/{category}/edit', [App\Http\Controllers\CategoryController::class, 'edit'])->name('edit');
+            Route::put('/{category}', [App\Http\Controllers\CategoryController::class, 'update'])->name('update');
+            Route::patch('/{category}/toggle-status', [App\Http\Controllers\CategoryController::class, 'toggleStatus'])->name('toggle-status');
+        });
+        Route::middleware(['can:products.delete'])->group(function () {
+            Route::delete('/{category}', [App\Http\Controllers\CategoryController::class, 'destroy'])->name('destroy');
+        });
     });
     
     // Clientes - requiere permisos
@@ -225,4 +232,11 @@ Route::prefix('api')->group(function () {
     Route::get('/delivery/calculate', [App\Http\Controllers\PosController::class, 'calculateDeliveryCost'])->name('api.delivery.calculate');
     Route::get('/ingredients/by-size/{size}', [App\Http\Controllers\PosController::class, 'getIngredientsBySize'])->name('api.ingredients.by-size');
     Route::post('/products/search-by-name', [App\Http\Controllers\PosController::class, 'searchProductByName'])->name('api.products.search-by-name');
+    
+    // API para categorías
+    Route::get('/categories', [App\Http\Controllers\CategoryController::class, 'getCategories'])->name('api.categories.index');
+    Route::post('/categories', [App\Http\Controllers\CategoryController::class, 'storeApi'])->name('api.categories.store');
+    Route::put('/categories/{category}', [App\Http\Controllers\CategoryController::class, 'updateApi'])->name('api.categories.update');
+    Route::delete('/categories/{category}', [App\Http\Controllers\CategoryController::class, 'destroyApi'])->name('api.categories.destroy');
+    Route::patch('/categories/{category}/toggle-status', [App\Http\Controllers\CategoryController::class, 'toggleStatus'])->name('api.categories.toggle-status');
 });

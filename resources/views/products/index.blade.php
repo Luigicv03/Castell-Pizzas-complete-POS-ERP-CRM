@@ -13,6 +13,12 @@
         </div>
         
         <div class="flex items-center space-x-4">
+            <button @click="openCategoryModal('create')" class="btn-secondary">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                </svg>
+                Nueva Categoría
+            </button>
             <button @click="openModal('create')" class="btn-primary">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -97,10 +103,74 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Categorías</dt>
-                            <dd class="text-2xl font-bold text-gray-900">{{ $categories->count() }}</dd>
+                            <dd class="text-2xl font-bold text-gray-900" x-text="allCategories.length"></dd>
                         </dl>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gestión de Categorías -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-lg font-semibold text-gray-900">Gestión de Categorías</h3>
+            <p class="text-sm text-gray-600">Administra las categorías de productos</p>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <template x-for="category in allCategories" :key="category.id">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-gray-900" x-text="category.name"></h4>
+                            <div class="flex items-center space-x-2">
+                                <button @click="toggleCategoryStatus(category)" 
+                                        class="w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                                        :class="category.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                                        :title="category.is_active ? 'Desactivar' : 'Activar'">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path x-show="category.is_active" fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                        <path x-show="!category.is_active" fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </button>
+                                <div class="relative">
+                                    <button @click="openCategoryDropdown(category.id)" class="text-gray-400 hover:text-gray-600">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+                                        </svg>
+                                    </button>
+                                    <div x-show="activeCategoryDropdown === category.id" 
+                                         @click.away="activeCategoryDropdown = null"
+                                         class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                        <div class="py-1">
+                                            <button @click="openCategoryModal('edit', category)" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                </svg>
+                                                Editar
+                                            </button>
+                                            <button @click="deleteCategory(category)" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                </svg>
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2" x-text="category.description || 'Sin descripción'"></p>
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <span x-text="category.products_count + ' productos'"></span>
+                            <span x-show="category.sort_order" x-text="'Orden: ' + category.sort_order"></span>
+                        </div>
+                        <div class="mt-2">
+                            <span class="badge" :class="category.is_active ? 'badge-success' : 'badge-secondary'" 
+                                  x-text="category.is_active ? 'Activa' : 'Inactiva'"></span>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
@@ -120,9 +190,9 @@
                     <label class="form-label">Categoría</label>
                     <select x-model="filters.category" class="form-select">
                         <option value="">Todas las categorías</option>
-                        @foreach($categories as $category)
-                        <option value="{{ $category->id }}">{{ $category->name }}</option>
-                        @endforeach
+                        <template x-for="category in allCategories" :key="category.id">
+                            <option :value="category.id" x-text="category.name"></option>
+                        </template>
                     </select>
                 </div>
                 <div>
@@ -268,9 +338,9 @@
                             <label class="form-label">Categoría <span class="text-red-500">*</span></label>
                             <select x-model="formData.category_id" class="form-select" required>
                                 <option value="">Seleccionar categoría</option>
-                                @foreach($categories as $category)
-                                <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                @endforeach
+                                <template x-for="category in allCategories" :key="category.id">
+                                    <option :value="category.id" x-text="category.name"></option>
+                                </template>
                             </select>
                         </div>
                         
@@ -336,14 +406,85 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal para Crear/Editar Categoría -->
+    <div x-show="showCategoryModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" 
+         style="z-index: 9999; padding: 20px; overflow-y: auto;">
+        <div class="bg-white rounded-lg shadow-xl w-full mx-auto" 
+             @click.away="showCategoryModal = false"
+             style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900" x-text="categoryModalMode === 'create' ? 'Crear Nueva Categoría' : 'Editar Categoría'"></h3>
+                    <button @click="showCategoryModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="saveCategory()">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="form-label">Nombre de la Categoría <span class="text-red-500">*</span></label>
+                            <input type="text" x-model="categoryFormData.name" class="form-input" required>
+                        </div>
+                        
+                        <div>
+                            <label class="form-label">Descripción</label>
+                            <textarea x-model="categoryFormData.description" class="form-textarea" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="form-label">Color</label>
+                                <input type="color" x-model="categoryFormData.color" class="form-input h-10">
+                            </div>
+                            
+                            <div>
+                                <label class="form-label">Orden de Visualización</label>
+                                <input type="number" x-model="categoryFormData.sort_order" min="0" class="form-input">
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" x-model="categoryFormData.is_active" class="form-checkbox">
+                                <span class="ml-2 text-sm font-medium text-gray-700">Categoría activa</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <button type="button" @click="showCategoryModal = false" class="btn btn-secondary">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save mr-2"></i>
+                            <span x-text="categoryModalMode === 'create' ? 'Crear Categoría' : 'Guardar Cambios'"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
 function productsManagement() {
     return {
         allProducts: @json($products),
+        allCategories: @json($categories),
         showModal: false,
+        showCategoryModal: false,
         modalMode: 'create', // 'create' or 'edit'
+        categoryModalMode: 'create', // 'create' or 'edit'
+        activeCategoryDropdown: null,
         formData: {
             id: null,
             name: '',
@@ -356,6 +497,14 @@ function productsManagement() {
             sort_order: 0,
             is_active: true,
             is_featured: false
+        },
+        categoryFormData: {
+            id: null,
+            name: '',
+            description: '',
+            color: '#3B82F6',
+            sort_order: 0,
+            is_active: true
         },
         filters: {
             search: '',
@@ -493,6 +642,133 @@ function productsManagement() {
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error al eliminar el producto');
+            }
+        },
+
+        // Funciones para categorías
+        openCategoryModal(mode, category = null) {
+            this.categoryModalMode = mode;
+            this.activeCategoryDropdown = null;
+            
+            if (mode === 'edit' && category) {
+                this.categoryFormData = {
+                    id: category.id,
+                    name: category.name,
+                    description: category.description || '',
+                    color: category.color || '#3B82F6',
+                    sort_order: category.sort_order || 0,
+                    is_active: category.is_active
+                };
+            } else {
+                this.categoryFormData = {
+                    id: null,
+                    name: '',
+                    description: '',
+                    color: '#3B82F6',
+                    sort_order: 0,
+                    is_active: true
+                };
+            }
+            
+            this.showCategoryModal = true;
+        },
+
+        async saveCategory() {
+            try {
+                const url = this.categoryModalMode === 'create' ? '/api/categories' : `/api/categories/${this.categoryFormData.id}`;
+                const method = this.categoryModalMode === 'create' ? 'POST' : 'PUT';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify(this.categoryFormData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(data.message);
+                    this.showCategoryModal = false;
+                    await this.loadCategories();
+                } else {
+                    alert('Error: ' + (data.message || 'No se pudo guardar la categoría'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al guardar la categoría');
+            }
+        },
+
+        async deleteCategory(category) {
+            if (category.products_count > 0) {
+                alert('No se puede eliminar la categoría porque tiene productos asociados.');
+                return;
+            }
+
+            if (!confirm(`¿Estás seguro de que deseas eliminar la categoría "${category.name}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/categories/${category.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(data.message);
+                    await this.loadCategories();
+                } else {
+                    alert('Error: ' + (data.message || 'No se pudo eliminar la categoría'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al eliminar la categoría');
+            }
+        },
+
+        async toggleCategoryStatus(category) {
+            try {
+                const response = await fetch(`/api/categories/${category.id}/toggle-status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    category.is_active = data.is_active;
+                } else {
+                    alert('Error: ' + (data.message || 'No se pudo cambiar el estado'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cambiar el estado de la categoría');
+            }
+        },
+
+        openCategoryDropdown(categoryId) {
+            this.activeCategoryDropdown = this.activeCategoryDropdown === categoryId ? null : categoryId;
+        },
+
+        async loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const categories = await response.json();
+                this.allCategories = categories;
+            } catch (error) {
+                console.error('Error loading categories:', error);
             }
         }
     }
