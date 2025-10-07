@@ -227,6 +227,7 @@ Route::post('/process-order', [App\Http\Controllers\PosController::class, 'proce
 // API Routes (sin autenticación para uso interno)
 Route::prefix('api')->group(function () {
     Route::get('/customers/search', [App\Http\Controllers\CustomerController::class, 'search'])->name('api.customers.search');
+    Route::get('/customers/pos-search', [App\Http\Controllers\PosController::class, 'searchCustomers'])->name('api.customers.pos-search');
     Route::get('/orders/active', [App\Http\Controllers\PosController::class, 'getActiveOrders'])->name('api.orders.active');
     Route::get('/delivery/costs', [App\Http\Controllers\PosController::class, 'getDeliveryCosts'])->name('api.delivery.costs');
     Route::get('/delivery/calculate', [App\Http\Controllers\PosController::class, 'calculateDeliveryCost'])->name('api.delivery.calculate');

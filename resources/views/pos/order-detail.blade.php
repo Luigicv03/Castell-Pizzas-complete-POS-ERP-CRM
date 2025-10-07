@@ -1780,7 +1780,7 @@ function orderDetailSystem() {
             this.customerSearchLoading = true;
             
             try {
-                const response = await fetch(`/api/customers/search?q=${encodeURIComponent(this.customerSearch)}`);
+                const response = await fetch(`/api/customers/pos-search?q=${encodeURIComponent(this.customerSearch)}`);
                 const customers = await response.json();
                 
                 // Filter by cedula
@@ -1815,7 +1815,7 @@ function orderDetailSystem() {
             }
             
             try {
-                const response = await fetch(`/api/customers/search?q=${encodeURIComponent(this.customerData.cedula)}`);
+                const response = await fetch(`/api/customers/pos-search?q=${encodeURIComponent(this.customerData.cedula)}`);
                 const customers = await response.json();
                 
                 const existingCustomer = customers.find(customer => 

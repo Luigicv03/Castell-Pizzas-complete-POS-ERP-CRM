@@ -1142,4 +1142,29 @@ class PosController extends Controller
         }
     }
 
+    /**
+     * Buscar clientes para el POS (sin restricciones de roles)
+     */
+    public function searchCustomers(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $customers = Customer::where('is_active', true)
+            ->where(function($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                  ->orWhere('phone', 'like', "%{$query}%")
+                  ->orWhere('email', 'like', "%{$query}%")
+                  ->orWhere('cedula', 'like', "%{$query}%");
+            })
+            ->select('id', 'name', 'phone', 'email', 'cedula', 'address')
+            ->limit(10)
+            ->get();
+
+        return response()->json($customers);
+    }
+
 }
