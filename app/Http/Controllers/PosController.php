@@ -286,6 +286,21 @@ class PosController extends Controller
         ]);
     }
 
+    public function updateOrderTitle(Request $request, Order $order)
+    {
+        $request->validate([
+            'custom_title' => 'nullable|string|max:100'
+        ]);
+
+        $order->update(['custom_title' => $request->custom_title]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Título del pedido actualizado correctamente',
+            'custom_title' => $order->custom_title
+        ]);
+    }
+
     public function addProductToOrder(Request $request, $orderId)
     {
         try {

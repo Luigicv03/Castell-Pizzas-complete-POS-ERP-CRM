@@ -111,7 +111,7 @@
 <body>
     <div class="header">
         <h1>CAJA - RESUMEN DEL PEDIDO</h1>
-        <h2>Orden #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h2>
+        <h2>{{ $order->custom_title ?: 'Orden #' . str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h2>
     </div>
 
     <div class="order-info">
@@ -126,7 +126,7 @@
         @if($order->customer && $order->customer->phone)
         <p><strong>Teléfono:</strong> {{ $order->customer->phone }}</p>
         @endif
-        <p><strong>Hora:</strong> {{ $order->created_at->format('H:i') }}</p>
+        <p><strong>Fecha y Hora:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>
         <p><strong>Mesero:</strong> {{ $order->user->name }}</p>
     </div>
 

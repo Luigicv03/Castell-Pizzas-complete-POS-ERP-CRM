@@ -19,8 +19,9 @@ class ExchangeRateController extends Controller
     public function index()
     {
         $exchangeRate = ExchangeRate::getCurrentRate();
+        $timeUntilUpdate = $exchangeRate->getTimeUntilNextUpdate();
         
-        return view('exchange-rates.index', compact('exchangeRate'));
+        return view('exchange-rates.index', compact('exchangeRate', 'timeUntilUpdate'));
     }
 
     /**

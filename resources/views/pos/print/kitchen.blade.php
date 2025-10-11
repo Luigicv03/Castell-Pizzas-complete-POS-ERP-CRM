@@ -87,7 +87,7 @@
 <body>
     <div class="header">
         <h1>COCINA</h1>
-        <h2>Comanda #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h2>
+        <h2>{{ $order->custom_title ?: 'Comanda #' . str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h2>
     </div>
 
     <div class="order-info">
@@ -96,7 +96,7 @@
         <p><strong>Mesa:</strong> {{ $order->table->name }}</p>
         @endif
         <p><strong>Cliente:</strong> {{ $order->customer ? $order->customer->name : ($order->customer_name ?: 'Cliente General') }}</p>
-        <p><strong>Hora:</strong> {{ $order->created_at->format('H:i') }}</p>
+        <p><strong>Fecha y Hora:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>
         <p><strong>Mesero:</strong> {{ $order->user->name }}</p>
     </div>
 

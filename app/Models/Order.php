@@ -39,6 +39,7 @@ class Order extends Model
         'currency',
         'notes',
         'kitchen_notes',
+        'custom_title',
         'prepared_at',
         'delivered_at',
     ];

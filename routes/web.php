@@ -48,6 +48,7 @@ Route::prefix('pos')->name('pos.')->group(function () {
     Route::get('/{order}/edit', [App\Http\Controllers\PosController::class, 'edit'])->name('edit');
     Route::put('/{order}', [App\Http\Controllers\PosController::class, 'update'])->name('update');
     Route::put('/{order}/status', [App\Http\Controllers\PosController::class, 'updateOrderStatus'])->name('update-status');
+    Route::put('/{order}/title', [App\Http\Controllers\PosController::class, 'updateOrderTitle'])->name('update-title');
     Route::delete('/{order}', [App\Http\Controllers\PosController::class, 'destroy'])->name('destroy');
     Route::get('/{order}/payment', [App\Http\Controllers\PosController::class, 'showPayment'])->name('payment');
     Route::post('/{order}/payment', [App\Http\Controllers\PosController::class, 'processPayment'])->name('process-payment');

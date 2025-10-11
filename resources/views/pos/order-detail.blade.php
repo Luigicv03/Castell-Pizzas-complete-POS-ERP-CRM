@@ -455,7 +455,12 @@
                 <i class="fas fa-arrow-left"></i> Volver
             </a>
             <div>
-                <h5 class="mb-0 fw-bold">Pedido #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0 fw-bold" id="orderTitleDisplay">{{ $order->custom_title ?: 'Pedido #' . str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}</h5>
+                    <button onclick="openEditTitleModal()" class="btn btn-outline-primary btn-sm" title="Editar título">
+                        ✏️
+                    </button>
+                </div>
                 <small class="text-muted">
                     @if($order->table)
                         Mesa {{ $order->table->name }} • {{ $order->customer ? $order->customer->name : ($order->customer_name ?: 'Cliente General') }}
@@ -1056,6 +1061,111 @@
     </div>
 
 </div><!-- Fin del componente Alpine orderDetailSystem -->
+
+<!-- Modal simple para editar título (sin Alpine.js) -->
+<div id="editTitleModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 500px; padding: 30px; margin: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="font-size: 20px; font-weight: bold; color: #212529; margin: 0;">Editar Título del Pedido</h3>
+            <button onclick="closeEditTitleModal()" style="background: transparent; border: none; color: #dc3545; font-size: 28px; line-height: 1; cursor: pointer;">
+                ❌
+            </button>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-size: 14px; font-weight: 500; color: #495057; margin-bottom: 8px;">
+                Título personalizado
+            </label>
+            <input id="customTitleInput" 
+                   type="text" 
+                   class="form-control"
+                   placeholder="Ej: Pedido Especial, Mesa VIP, etc."
+                   maxlength="100"
+                   value="{{ $order->custom_title }}">
+            <small class="text-muted d-block mt-2">
+                Deja vacío para usar el título automático: Pedido #{{ str_pad($order->daily_number, 2, '0', STR_PAD_LEFT) }}
+            </small>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="closeEditTitleModal()" class="btn btn-secondary">
+                Cancelar
+            </button>
+            <button onclick="saveOrderTitle()" class="btn btn-primary" id="saveTitleBtn">
+                💾 Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openEditTitleModal() {
+    document.getElementById('editTitleModal').style.display = 'flex';
+    document.getElementById('customTitleInput').value = '{{ $order->custom_title }}';
+    document.getElementById('customTitleInput').focus();
+}
+
+function closeEditTitleModal() {
+    document.getElementById('editTitleModal').style.display = 'none';
+}
+
+async function saveOrderTitle() {
+    const customTitle = document.getElementById('customTitleInput').value.trim();
+    const saveBtn = document.getElementById('saveTitleBtn');
+    
+    // Deshabilitar botón mientras se guarda
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '⏳ Guardando...';
+    
+    try {
+        const response = await fetch('/pos/{{ $order->id }}/title', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ custom_title: customTitle })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Actualizar el título en la pantalla
+            const displayTitle = customTitle || 'Pedido #{{ str_pad($order->daily_number, 2, "0", STR_PAD_LEFT) }}';
+            document.getElementById('orderTitleDisplay').textContent = displayTitle;
+            
+            // Mostrar mensaje de éxito
+            alert('✅ Título actualizado correctamente');
+            
+            // Cerrar modal
+            closeEditTitleModal();
+        } else {
+            alert('❌ Error al actualizar el título');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al actualizar el título');
+    } finally {
+        // Rehabilitar botón
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '💾 Guardar';
+    }
+}
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('editTitleModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeEditTitleModal();
+    }
+});
+
+// Guardar con Enter
+document.getElementById('customTitleInput')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        saveOrderTitle();
+    }
+});
+</script>
 
 <!-- Modal de Ingredientes -->
 <div id="ingredientsModal" 
@@ -1838,6 +1948,26 @@ function orderDetailSystem() {
                 console.error('Error checking cedula:', error);
                 this.cedulaExists = false;
             }
+        },
+        
+        showAlert(type, message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+            alertDiv.style.top = '20px';
+            alertDiv.style.right = '20px';
+            alertDiv.style.zIndex = '9999';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 5000);
         }
     }
 }

@@ -53,15 +53,47 @@
                                         <i class="fas fa-sync-alt me-2"></i>
                                         Actualizar desde BCV
                                     </h6>
+                                    
+                                    <!-- Countdown para próxima actualización automática -->
+                                    <div class="alert alert-info mb-3" x-show="!countdown.needs_update">
+                                        <small class="text-muted d-block mb-1">
+                                            <i class="fas fa-clock me-1"></i>
+                                            Próxima actualización automática en:
+                                        </small>
+                                        <div class="d-flex justify-content-center gap-2">
+                                            <div class="text-center">
+                                                <div class="fs-4 fw-bold text-primary" x-text="countdown.hours.toString().padStart(2, '0')">00</div>
+                                                <small class="text-muted">horas</small>
+                                            </div>
+                                            <div class="fs-4 fw-bold text-primary">:</div>
+                                            <div class="text-center">
+                                                <div class="fs-4 fw-bold text-primary" x-text="countdown.minutes.toString().padStart(2, '0')">00</div>
+                                                <small class="text-muted">min</small>
+                                            </div>
+                                            <div class="fs-4 fw-bold text-primary">:</div>
+                                            <div class="text-center">
+                                                <div class="fs-4 fw-bold text-primary" x-text="countdown.seconds.toString().padStart(2, '0')">00</div>
+                                                <small class="text-muted">seg</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="alert alert-warning mb-3" x-show="countdown.needs_update">
+                                        <small class="d-block">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            La tasa se actualizará en la próxima visita a cualquier página
+                                        </small>
+                                    </div>
+                                    
                                     <button @click="updateFromBCV()" 
                                             :disabled="isUpdating"
                                             class="btn btn-info btn-lg w-100">
                                         <i class="fas fa-download me-2" x-show="!isUpdating"></i>
                                         <i class="fas fa-spinner fa-spin me-2" x-show="isUpdating"></i>
-                                        <span x-text="isUpdating ? 'Actualizando...' : 'Actualizar desde BCV'"></span>
+                                        <span x-text="isUpdating ? 'Actualizando...' : 'Actualizar Ahora'"></span>
                                     </button>
                                     <small class="text-muted d-block mt-2">
-                                        Obtiene la tasa oficial del Banco Central de Venezuela
+                                        O espera a la actualización automática cada 4 horas
                                     </small>
                                 </div>
                             </div>
@@ -182,10 +214,37 @@ function exchangeRateSystem() {
         bsfAmount: 0,
         bsfResult: 0,
         usdResult: 0,
+        countdown: @json($timeUntilUpdate),
+        countdownInterval: null,
         
         init() {
             this.calculateBsF();
             this.calculateUSD();
+            this.startCountdown();
+        },
+        
+        startCountdown() {
+            // Actualizar el countdown cada segundo
+            this.countdownInterval = setInterval(() => {
+                if (this.countdown.total_seconds > 0) {
+                    this.countdown.total_seconds--;
+                    
+                    // Calcular horas, minutos y segundos
+                    const hours = Math.floor(this.countdown.total_seconds / 3600);
+                    const minutes = Math.floor((this.countdown.total_seconds % 3600) / 60);
+                    const seconds = this.countdown.total_seconds % 60;
+                    
+                    this.countdown.hours = hours;
+                    this.countdown.minutes = minutes;
+                    this.countdown.seconds = seconds;
+                    
+                    if (this.countdown.total_seconds === 0) {
+                        this.countdown.needs_update = true;
+                    }
+                } else {
+                    this.countdown.needs_update = true;
+                }
+            }, 1000);
         },
         
         async updateFromBCV() {
@@ -202,18 +261,18 @@ function exchangeRateSystem() {
                 const data = await response.json();
                 
                 if (data.success) {
-                    this.currentRate = data.rate;
-                    this.manualRate = data.rate.usd_to_bsf;
-                    this.isAutomatic = data.rate.is_automatic;
-                    this.showAlert('success', data.message);
-                    this.calculateBsF();
-                    this.calculateUSD();
+                    this.showAlert('success', data.message + ' - Recargando...');
+                    
+                    // Recargar la página después de 1 segundo para obtener el nuevo countdown
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 } else {
                     this.showAlert('error', data.message);
+                    this.isUpdating = false;
                 }
             } catch (error) {
                 this.showAlert('error', 'Error al actualizar desde BCV');
-            } finally {
                 this.isUpdating = false;
             }
         },
@@ -236,16 +295,18 @@ function exchangeRateSystem() {
                 const data = await response.json();
                 
                 if (data.success) {
-                    this.currentRate = data.rate;
-                    this.showAlert('success', data.message);
-                    this.calculateBsF();
-                    this.calculateUSD();
+                    this.showAlert('success', data.message + ' - Recargando...');
+                    
+                    // Recargar la página después de 1 segundo para obtener el nuevo countdown
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 } else {
                     this.showAlert('error', data.message);
+                    this.isSaving = false;
                 }
             } catch (error) {
                 this.showAlert('error', 'Error al guardar la configuración');
-            } finally {
                 this.isSaving = false;
             }
         },

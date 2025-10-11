@@ -83,4 +83,57 @@ class ExchangeRate extends Model
     {
         return round($bsfAmount / $this->usd_to_bsf, 2);
     }
+
+    /**
+     * Verificar si necesita actualización (4 horas)
+     */
+    public function needsUpdate()
+    {
+        if (!$this->last_updated_at) {
+            return true;
+        }
+
+        // Verificar si han pasado 4 horas o más
+        return now()->diffInHours($this->last_updated_at) >= 4;
+    }
+
+    /**
+     * Obtener el tiempo restante para la próxima actualización
+     */
+    public function getTimeUntilNextUpdate()
+    {
+        if (!$this->last_updated_at) {
+            return [
+                'hours' => 0,
+                'minutes' => 0,
+                'seconds' => 0,
+                'total_seconds' => 0,
+                'needs_update' => true
+            ];
+        }
+
+        $nextUpdate = $this->last_updated_at->copy()->addHours(4);
+        $now = now();
+
+        if ($now->gte($nextUpdate)) {
+            return [
+                'hours' => 0,
+                'minutes' => 0,
+                'seconds' => 0,
+                'total_seconds' => 0,
+                'needs_update' => true
+            ];
+        }
+
+        $diff = $now->diff($nextUpdate);
+        
+        return [
+            'hours' => $diff->h,
+            'minutes' => $diff->i,
+            'seconds' => $diff->s,
+            'total_seconds' => $now->diffInSeconds($nextUpdate),
+            'needs_update' => false,
+            'next_update_at' => $nextUpdate
+        ];
+    }
 }
