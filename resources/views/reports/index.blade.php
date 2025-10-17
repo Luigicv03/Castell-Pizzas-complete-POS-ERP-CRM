@@ -13,7 +13,7 @@
     </div>
 
     <!-- Report Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <a href="{{ route('reports.sales') }}" class="group">
             <div class="card hover:shadow-lg transition-shadow duration-200">
                 <div class="card-body">
@@ -28,6 +28,26 @@
                         <div class="ml-4">
                             <h3 class="text-lg font-semibold text-gray-900 group-hover:text-green-700">Reporte de Ventas</h3>
                             <p class="text-sm text-gray-500">Análisis de ventas diarias</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <a href="{{ route('reports.deliveries') }}" class="group">
+            <div class="card hover:shadow-lg transition-shadow duration-200">
+                <div class="card-body">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-cyan-700">Reporte de Deliverys</h3>
+                            <p class="text-sm text-gray-500">Análisis de deliverys diarios</p>
                         </div>
                     </div>
                 </div>

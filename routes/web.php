@@ -189,6 +189,13 @@ Route::post('/process-order', [App\Http\Controllers\PosController::class, 'proce
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [App\Http\Controllers\ReportController::class, 'index'])->name('index');
         Route::get('/sales', [App\Http\Controllers\ReportController::class, 'sales'])->name('sales');
+        Route::get('/sales/day/{date}', [App\Http\Controllers\ReportController::class, 'salesDayDetail'])->name('sales.day');
+        Route::get('/sales/export', [App\Http\Controllers\ReportController::class, 'exportSales'])->name('sales.export');
+        Route::get('/sales/day/{date}/export', [App\Http\Controllers\ReportController::class, 'exportSalesDayDetail'])->name('sales.day.export');
+        Route::get('/deliveries', [App\Http\Controllers\ReportController::class, 'deliveries'])->name('deliveries');
+        Route::get('/deliveries/day/{date}', [App\Http\Controllers\ReportController::class, 'deliveriesDayDetail'])->name('deliveries.day');
+        Route::get('/deliveries/export', [App\Http\Controllers\ReportController::class, 'exportDeliveries'])->name('deliveries.export');
+        Route::get('/deliveries/day/{date}/export', [App\Http\Controllers\ReportController::class, 'exportDeliveriesDayDetail'])->name('deliveries.day.export');
         Route::get('/products', [App\Http\Controllers\ReportController::class, 'products'])->name('products');
         Route::get('/inventory', [App\Http\Controllers\ReportController::class, 'inventory'])->name('inventory');
         Route::get('/customers', [App\Http\Controllers\ReportController::class, 'customers'])->name('customers');

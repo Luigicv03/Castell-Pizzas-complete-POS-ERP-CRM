@@ -46,3 +46,4 @@ class UpdateExchangeRateCommand extends Command
     }
 }
 
+

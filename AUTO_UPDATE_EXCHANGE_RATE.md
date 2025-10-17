@@ -208,3 +208,5 @@ El middleware solo verifica y actualiza. No expone ninguna información sensible
 **Última actualización**: Octubre 2025  
 **Versión**: 1.0
 
+
+
